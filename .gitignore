@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+spotify-keys.txt
+
+server/covers/
+
+*.log
+npm-debug.log*
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+*.swp
+*.swo
