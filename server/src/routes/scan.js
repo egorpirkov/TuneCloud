@@ -1,10 +1,10 @@
 import { scanDirectory, scanSingleFile } from '../scanner.js';
-import { requireAuth } from '../auth.js';
+import { requireAdmin } from '../auth.js';
 import fs from 'fs';
 import path from 'path';
 
 export default async function scanRoutes(fastify) {
-  fastify.post('/api/scan', { preHandler: requireAuth }, async (req, reply) => {
+  fastify.post('/api/scan', { preHandler: requireAdmin }, async (req, reply) => {
     const musicDir = process.env.MUSIC_DIR;
 
     if (!fs.existsSync(musicDir)) {
@@ -20,7 +20,7 @@ export default async function scanRoutes(fastify) {
     }
   });
 
-  fastify.post('/api/scan/file', { preHandler: requireAuth }, async (req, reply) => {
+  fastify.post('/api/scan/file', { preHandler: requireAdmin }, async (req, reply) => {
     const { filePath } = req.body;
     if (!filePath) {
       return reply.status(400).send({ error: 'filePath required' });

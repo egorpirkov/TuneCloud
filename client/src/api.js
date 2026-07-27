@@ -57,4 +57,5 @@ export const api = {
   login: (username, password) => fetchJson('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   register: (username, password) => fetchJson('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => fetchJson('/auth/me'),
+  adminUsers: () => fetchJson('/auth/users'),
 };

@@ -45,5 +45,8 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;

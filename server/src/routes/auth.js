@@ -1,8 +1,8 @@
 import { query } from '../db.js';
-import { hashPassword, verifyPassword, signToken } from '../auth.js';
+import { hashPassword, verifyPassword, signToken, requireAdmin } from '../auth.js';
 
 export default async function authRoutes(fastify) {
-  fastify.post('/api/auth/register', async (req, reply) => {
+  fastify.post('/api/auth/register', { preHandler: requireAdmin }, async (req, reply) => {
     const { username, password } = req.body;
     if (!username || !password) {
       return reply.status(400).send({ error: 'username and password required' });
@@ -17,13 +17,12 @@ export default async function authRoutes(fastify) {
     }
 
     const passwordHash = await hashPassword(password);
-    const { rows } = await query(
-      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
+    await query(
+      'INSERT INTO users (username, password_hash) VALUES ($1, $2)',
       [username, passwordHash]
     );
 
-    const token = signToken(rows[0]);
-    return { token, user: { id: rows[0].id, username: rows[0].username } };
+    return { success: true, username };
   });
 
   fastify.post('/api/auth/login', async (req, reply) => {
@@ -44,7 +43,7 @@ export default async function authRoutes(fastify) {
     }
 
     const token = signToken(user);
-    return { token, user: { id: user.id, username: user.username } };
+    return { token, user: { id: user.id, username: user.username, is_admin: user.is_admin } };
   });
 
   fastify.get('/api/auth/me', async (req, reply) => {
@@ -55,11 +54,16 @@ export default async function authRoutes(fastify) {
     try {
       const { verifyToken } = await import('../auth.js');
       const payload = verifyToken(header.slice(7));
-      const { rows } = await query('SELECT id, username FROM users WHERE id = $1', [payload.id]);
+      const { rows } = await query('SELECT id, username, is_admin FROM users WHERE id = $1', [payload.id]);
       if (rows.length === 0) return { authenticated: false };
       return { authenticated: true, user: rows[0] };
     } catch {
       return { authenticated: false };
     }
+  });
+
+  fastify.get('/api/auth/users', { preHandler: requireAdmin }, async (req, reply) => {
+    const { rows } = await query('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at');
+    return rows;
   });
 }

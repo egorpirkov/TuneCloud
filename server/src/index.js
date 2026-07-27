@@ -18,13 +18,18 @@ async function seedAdmin() {
     console.log('ADMIN_PASSWORD not set — skipping admin user creation. Register via /api/auth/register');
     return;
   }
-  const { rows } = await query('SELECT id FROM users WHERE username = $1', [username]);
+  const { rows } = await query('SELECT id, is_admin FROM users WHERE username = $1', [username]);
   if (rows.length > 0) {
-    console.log(`Admin user "${username}" already exists`);
+    if (!rows[0].is_admin) {
+      await query('UPDATE users SET is_admin = true WHERE id = $1', [rows[0].id]);
+      console.log(`Admin privileges granted to existing user "${username}"`);
+    } else {
+      console.log(`Admin user "${username}" already exists`);
+    }
     return;
   }
   const hash = await hashPassword(password);
-  await query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, hash]);
+  await query('INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, true)', [username, hash]);
   console.log(`Admin user "${username}" created`);
 }
 
