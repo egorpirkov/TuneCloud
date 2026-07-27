@@ -1,0 +1,97 @@
+name: Build, Push and Update GitOps
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Application Repo
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Client Container
+        id: meta-client
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/tunecloud-client
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+
+      - name: Build and push Client Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: true
+          tags: ${{ steps.meta-client.outputs.tags }} 
+          labels: ${{ steps.meta-client.outputs.labels }}
+
+
+      - name: Extract metadata for API Container
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/tunecloud-server
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+      
+
+      - name: Build and push API Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: ${{ steps.meta-server.outputs.tags }} 
+          labels: ${{ steps.meta-server.outputs.labels }}
+
+
+  update-gitops:
+    runs-on: ubuntu-latest
+    needs: build-and-push 
+    steps:
+      - name: Checkout GitOps Repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'egorpirkov/TuneCloud-GitOps'
+          token: ${{ secrets.GITOPS_REPO_PAT }}
+
+      - name: Update Image Tags
+        env:
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          TAG="sha-${SHORT_SHA:0:7}"
+          
+          CLIENT_IMAGE="ghcr.io/${{ github.repository_owner }}/tunecloud-client:$TAG"
+          SERVER_IMAGE="ghcr.io/${{ github.repository_owner }}/tunecloud-server:$TAG"
+          
+          yq -i ".spec.template.spec.containers[0].image = \"$CLIENT_IMAGE\"" client-deployment.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$SERVER_IMAGE\"" server-deployment.yaml
+
+      - name: Commit and Push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(deploy): update tunecloud images to sha-${{ github.sha }}"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
