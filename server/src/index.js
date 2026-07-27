@@ -2,17 +2,36 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
 import fs from 'fs';
-import { initDb } from './db.js';
+import { initDb, query } from './db.js';
 import { initCoversDir } from './cover.js';
+import { hashPassword } from './auth.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+async function seedAdmin() {
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    console.log('ADMIN_PASSWORD not set — skipping admin user creation. Register via /api/auth/register');
+    return;
+  }
+  const { rows } = await query('SELECT id FROM users WHERE username = $1', [username]);
+  if (rows.length > 0) {
+    console.log(`Admin user "${username}" already exists`);
+    return;
+  }
+  const hash = await hashPassword(password);
+  await query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, hash]);
+  console.log(`Admin user "${username}" created`);
+}
+
 async function main() {
   await initDb();
   await initCoversDir();
+  await seedAdmin();
 
   const app = Fastify({ logger: true });
 
@@ -37,6 +56,7 @@ async function main() {
   const { default: tags } = await import('./routes/tags.js');
   const { default: cover } = await import('./routes/cover.js');
   const { default: spotify } = await import('./routes/spotify.js');
+  const { default: auth } = await import('./routes/auth.js');
 
   browse(app);
   stream(app);
@@ -45,6 +65,7 @@ async function main() {
   tags(app);
   cover(app);
   spotify(app);
+  auth(app);
 
   if (fs.existsSync(clientDist)) {
     app.setNotFoundHandler(async (req, reply) => {

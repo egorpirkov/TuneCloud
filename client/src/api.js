@@ -1,10 +1,25 @@
 const BASE = '/api';
 
+let token = localStorage.getItem('tunecloud-token');
+
+export function setAuthToken(t) {
+  token = t;
+  if (t) localStorage.setItem('tunecloud-token', t);
+  else localStorage.removeItem('tunecloud-token');
+}
+
+export function getAuthToken() {
+  return token;
+}
+
 async function fetchJson(url, opts = {}) {
   const hasBody = opts.body !== undefined && opts.body !== null;
   const headers = { ...opts.headers };
   if (hasBody) {
     headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${BASE}${url}`, {
@@ -39,4 +54,7 @@ export const api = {
   tags: (id) => fetchJson(`/tags/${id}`),
   updateTags: (id, data) => fetchJson(`/tags/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   spotifyArtist: (name) => fetchJson(`/spotify/artist?name=${encodeURIComponent(name)}`),
+  login: (username, password) => fetchJson('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  register: (username, password) => fetchJson('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  me: () => fetchJson('/auth/me'),
 };

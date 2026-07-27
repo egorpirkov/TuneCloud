@@ -2,9 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import NodeID3 from 'node-id3';
 import { query } from '../db.js';
+import { requireAuth } from '../auth.js';
 
 export default async function tagRoutes(fastify) {
-  fastify.put('/api/tags/:id', async (req, reply) => {
+  fastify.put('/api/tags/:id', { preHandler: requireAuth }, async (req, reply) => {
     const { id } = req.params;
     const { rows } = await query('SELECT file_path FROM tracks WHERE id = $1', [id]);
 

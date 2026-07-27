@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from './api.js';
+import { api, setAuthToken, getAuthToken } from './api.js';
 
 function formatDuration(sec) {
   if (!sec || sec <= 0) return '0:00';
@@ -124,7 +124,7 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
   );
 }
 
-function Sidebar({ activeView, onViewChange, onHome }) {
+function Sidebar({ activeView, onViewChange, onHome, user, onLogout }) {
   const links = [
     { id: 'browse', label: 'Browse', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
     { id: 'albums', label: 'Albums', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
@@ -145,11 +145,15 @@ function Sidebar({ activeView, onViewChange, onHome }) {
           </button>
         ))}
       </nav>
-      <div className="p-3 border-t border-surface-700/50">
+      <div className="p-3 border-t border-surface-700/50 space-y-2">
         <button onClick={async () => {
           try { const r = await api.scan(); alert(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); window.location.reload(); }
           catch (e) { alert('Scan error: ' + e.message); }
         }} className="w-full btn-ghost text-xs">Rescan Library</button>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs text-surface-500 truncate">{user?.username}</span>
+          <button onClick={onLogout} className="text-xs text-surface-500 hover:text-red-400 transition-colors">Logout</button>
+        </div>
       </div>
     </aside>
   );
@@ -346,7 +350,62 @@ function SearchView({ onPlay, currentTrack }) {
   );
 }
 
+function LoginView({ onLogin }) {
+  const [tab, setTab] = useState('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setErr(''); setLoading(true);
+    try {
+      const fn = tab === 'login' ? api.login : api.register;
+      const data = await fn(username, password);
+      setAuthToken(data.token);
+      onLogin(data.user);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-screen flex items-center justify-center bg-surface-950">
+      <div className="w-full max-w-sm mx-4">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-indigo-400">TuneCloud</h1>
+          <p className="text-surface-500 text-sm mt-1">Sign in to your music library</p>
+        </div>
+        <form onSubmit={handleSubmit} className="card p-6 space-y-4">
+          <div className="flex border border-surface-700 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => { setTab('login'); setErr(''); }}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${tab === 'login' ? 'bg-indigo-600 text-white' : 'bg-surface-800 text-surface-400 hover:text-white'}`}>Sign In</button>
+            <button type="button" onClick={() => { setTab('register'); setErr(''); }}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${tab === 'register' ? 'bg-indigo-600 text-white' : 'bg-surface-800 text-surface-400 hover:text-white'}`}>Register</button>
+          </div>
+          <div>
+            <label className="block text-sm text-surface-400 mb-1">Username</label>
+            <input className="input w-full" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+          </div>
+          <div>
+            <label className="block text-sm text-surface-400 mb-1">Password</label>
+            <input className="input w-full" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
+          {err && <p className="text-red-400 text-sm">{err}</p>}
+          <button type="submit" disabled={loading} className="btn w-full">
+            {loading ? 'Please wait...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('browse');
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [queue, setQueue] = useState([]);
@@ -354,6 +413,21 @@ export default function App() {
   const [repeat, setRepeat] = useState('none');
   const [shuffle, setShuffle] = useState(false);
   const [volume, setVolume] = useState(() => { try { return parseFloat(localStorage.getItem(VOL_KEY)) || 0.7; } catch { return 0.7; } });
+
+  useEffect(() => {
+    if (getAuthToken()) {
+      api.me().then((data) => {
+        if (data.authenticated) setUser(data.user);
+        else setAuthToken(null);
+        setAuthLoading(false);
+      }).catch(() => { setAuthToken(null); setAuthLoading(false); });
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  const handleLogin = (userData) => setUser(userData);
+  const handleLogout = () => { setUser(null); setAuthToken(null); setQueue([]); setQueueIndex(-1); };
 
   const currentTrack = queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null;
 
@@ -395,10 +469,17 @@ export default function App() {
   const hasPrev = pickPrev() >= 0;
   const hasNext = pickNext() >= 0;
 
+  if (authLoading) {
+    return <div className="h-screen flex items-center justify-center bg-surface-950"><p className="text-surface-500">Loading...</p></div>;
+  }
+  if (!user) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
   return (
     <div className="h-screen flex flex-col">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} />
+        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto p-6 pb-28">
           {view === 'browse' && <BrowseView onPlay={handlePlay} currentTrack={currentTrack} />}
           {view === 'albums' && <AlbumsView onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
