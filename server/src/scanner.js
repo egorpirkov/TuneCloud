@@ -122,6 +122,7 @@ export async function scanDirectory(musicDir) {
   const audioFiles = files.filter(isAudioFile);
   console.log(`Found ${audioFiles.length} audio files`);
 
+  const scannedPaths = [];
   let processed = 0;
   for (const file of audioFiles) {
     try {
@@ -138,16 +139,27 @@ export async function scanDirectory(musicDir) {
         console.error(`  Could not insert basic entry: ${e2.message}`);
       }
     }
+    scannedPaths.push(file);
     if (processed % 100 === 0) {
       console.log(`Processed ${processed}/${audioFiles.length}`);
     }
   }
 
+  const deleted = await query(
+    `DELETE FROM tracks WHERE file_path LIKE $1 AND file_path != ALL($2)`,
+    [`${musicDir}%`, scannedPaths]
+  );
+  const removed = deleted.rowCount;
+  if (removed > 0) console.log(`Removed ${removed} stale track(s) from DB`);
+
+  await query(`DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM tracks WHERE album_id IS NOT NULL)`);
+  await query(`DELETE FROM artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM tracks WHERE artist_id IS NOT NULL)`);
+
   const covers = await extractAllMissingCovers();
   console.log(`Covers extracted: ${covers.extracted}/${covers.total}`);
 
   console.log(`Scan complete. Processed ${processed} files.`);
-  return { total: audioFiles.length, processed, covers: covers.extracted };
+  return { total: audioFiles.length, processed, covers: covers.extracted, removed };
 }
 
 export async function scanSingleFile(filePath) {
