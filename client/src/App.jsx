@@ -139,6 +139,7 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
   const menuRef = useRef(null);
   const canPlay = track.id != null;
   const isAdmin = user?.is_admin;
+  const canEditTags = track.format?.toLowerCase() === 'mp3';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -174,10 +175,16 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 glass-strong rounded-lg py-1 min-w-[120px] z-50 shadow-glass">
-                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditing(true); }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
-                  Edit Tags
-                </button>
+                {canEditTags ? (
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditing(true); }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
+                    Edit Tags
+                  </button>
+                ) : (
+                  <span className="block px-3 py-1.5 text-sm text-surface-600 cursor-default">
+                    Read-only ({track.format?.toUpperCase()})
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -279,6 +286,7 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
 }
 
 function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin }) {
+  const [scanning, setScanning] = useState(false);
   const links = [
     { id: 'browse', label: 'Browse', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
     { id: 'albums', label: 'Albums', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
@@ -300,10 +308,12 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin }) 
         ))}
       </nav>
       <div className="p-3 border-t border-white/10 space-y-2">
-        <button onClick={async () => {
-          try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); window.location.reload(); }
+        <button disabled={scanning} onClick={async () => {
+          setScanning(true);
+          try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); }
           catch (e) { toast('Scan error: ' + e.message, 'error'); }
-        }} className="w-full btn-ghost text-xs">Rescan Library</button>
+          finally { setScanning(false); }
+        }} className={`w-full btn-ghost text-xs ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}>{scanning ? 'Scanning...' : 'Rescan Library'}</button>
         <div className="h-px bg-white/5"></div>
         <div className="flex items-center justify-between px-1">
           <span className="text-xs text-surface-500 truncate">{user?.username}</span>
@@ -475,14 +485,14 @@ function ArtistsView({ onPlay, currentTrack, user }) {
   const handleSelect = async (artist) => {
     if (selected?.id === artist.id) { setSelected(null); setTracks([]); return; }
     setSelected(artist);
-    const all = await api.tracks({ limit: 500, sort: 'album', order: 'asc' });
+    const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
     const filtered = all.tracks.filter((t) => t.artist === artist.name);
     filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
     setTracks(filtered);
   };
   const reloadTracks = async () => {
     if (!selected) return;
-    const all = await api.tracks({ limit: 500, sort: 'album', order: 'asc' });
+    const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
     const filtered = all.tracks.filter((t) => t.artist === selected.name);
     filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
     setTracks(filtered);
