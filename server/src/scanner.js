@@ -58,7 +58,7 @@ async function upsertTrack(filePath, metadata) {
   const formatInfo = metadata.format || {};
 
   const artistId = common.artist
-    ? await ensureArtist(common.artist)
+    ? await ensureArtist(mainArtist(common.artist))
     : null;
 
   const albumArtistName = common.albumartist || mainArtist(common.artist);
@@ -161,6 +161,25 @@ async function mergeDuplicateAlbums() {
   return merged;
 }
 
+async function mergeDuplicateArtists() {
+  const { rows: artists } = await query('SELECT id, name FROM artists ORDER BY length(name) ASC');
+  let merged = 0;
+
+  for (const artist of artists) {
+    const mainName = mainArtist(artist.name);
+    if (mainName === artist.name) continue;
+
+    const mainId = await ensureArtist(mainName);
+
+    await query('UPDATE tracks SET artist_id = $1 WHERE artist_id = $2', [mainId, artist.id]);
+    await query('UPDATE albums SET artist_id = $1 WHERE artist_id = $2', [mainId, artist.id]);
+    await query('DELETE FROM artists WHERE id = $1', [artist.id]);
+    merged++;
+  }
+
+  return merged;
+}
+
 export async function scanDirectory(musicDir) {
   const pattern = path.join(musicDir, '**/*.*').replace(/\\/g, '/');
   const files = await glob(pattern, { nocase: true });
@@ -207,8 +226,11 @@ export async function scanDirectory(musicDir) {
   const merged = await mergeDuplicateAlbums();
   console.log(`Albums merged: ${merged}`);
 
+  const artistsMerged = await mergeDuplicateArtists();
+  console.log(`Artists merged: ${artistsMerged}`);
+
   console.log(`Scan complete. Processed ${processed} files.`);
-  return { total: audioFiles.length, processed, covers: covers.extracted, removed, merged };
+  return { total: audioFiles.length, processed, covers: covers.extracted, removed, merged, artistsMerged };
 }
 
 export async function scanSingleFile(filePath) {
