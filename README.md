@@ -304,4 +304,4 @@ users     (id, username UNIQUE, password_hash, is_admin, created_at)
 
 ## License
 
-MIT
+GPL v3.0
