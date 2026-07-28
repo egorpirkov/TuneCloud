@@ -54,13 +54,13 @@ function TrackRow({ track, onPlay, isPlaying, tracks }) {
     <tr className={`group transition-colors ${canPlay ? 'hover:bg-white/5 cursor-pointer' : ''} ${isPlaying ? 'bg-indigo-500/10 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]' : ''}`}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       onDoubleClick={() => canPlay && onPlay?.(track)}>
-      <td className="px-4 py-2 text-sm w-10 text-center">
-        {hover && canPlay ? (
-          <button onClick={(e) => { e.stopPropagation(); onPlay?.(track); }} className="text-white hover:text-indigo-300 transition-colors w-4 h-4 inline-flex items-center justify-center">
+      <td className="px-4 py-2 text-sm w-10 text-center relative">
+        <span className={`inline-flex items-center justify-center w-4 h-4 ${isPlaying ? 'text-indigo-300' : 'text-surface-500'} ${hover && canPlay ? 'invisible' : ''}`}>{track.track_number || ''}</span>
+        {canPlay && (
+          <button onClick={(e) => { e.stopPropagation(); onPlay?.(track); }}
+            className={`absolute inset-0 flex items-center justify-center text-white hover:text-indigo-300 transition-colors ${hover ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
           </button>
-        ) : (
-          <span className={`inline-flex items-center justify-center w-4 h-4 ${isPlaying ? 'text-indigo-300' : 'text-surface-500'}`}>{track.track_number || ''}</span>
         )}
       </td>
       <td className="px-4 py-2 text-sm truncate max-w-xs">{track.title || track.file_name}</td>
@@ -104,7 +104,7 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
     <div className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-2xl border-t border-white/10 z-50 px-4 select-none shadow-glass">
       <div className="max-w-6xl mx-auto flex items-center gap-4 h-20">
         <div className="flex items-center gap-3 w-64 shrink-0 min-w-0">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/10 shadow-lg shadow-indigo-500/10">
+          <div className="w-14 h-14 overflow-hidden bg-black/40 shrink-0">
             {track.cover_path ? <img src={api.coverUrl(track.cover_path)} alt="" className="w-full h-full object-cover" draggable="false" />
             : <div className="w-full h-full flex items-center justify-center"><svg className="w-6 h-6 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg></div>}
           </div>
@@ -148,6 +148,7 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
                 : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5L6 9H2v6h4l5 4V5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" /></svg>}
             </button>
             <input type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={handleVolumeSlider}
+              onWheel={(e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.05 : 0.05; onVolume(Math.max(0, Math.min(1, volume + delta))); }}
               className="w-20 h-1 appearance-none bg-surface-700 rounded-full cursor-pointer
                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
                 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow" />
