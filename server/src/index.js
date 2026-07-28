@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
+import fastifyMetrics from 'fastify-metrics';
 import fs from 'fs';
 import { initDb, query } from './db.js';
 import { initCoversDir } from './cover.js';
@@ -44,6 +45,8 @@ async function main() {
     origin: true,
     credentials: true,
   });
+
+  await app.register(fastifyMetrics, { endpoint: '/metrics' });
 
   const clientDist = path.resolve(__dirname, '../../client/dist');
   if (fs.existsSync(clientDist)) {
