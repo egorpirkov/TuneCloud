@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
-import { parseFile } from 'music-metadata';
+import pkg from 'music-metadata';
+const { parseFile } = pkg;
 import { query } from './db.js';
 import { extractCoverFromTrack, extractAllMissingCovers } from './cover.js';
 
@@ -41,6 +42,12 @@ function toInt(v) {
   return Number.isFinite(n) ? Math.round(n) : null;
 }
 
+function mainArtist(name) {
+  if (!name) return name;
+  const m = name.match(/^(.+?)\s*(?:feat\.|ft\.|featuring|vs\.?|&|,\s)/i);
+  return m ? m[1].trim() : name.trim();
+}
+
 async function upsertTrack(filePath, metadata) {
   const stats = fs.statSync(filePath);
   const fileName = path.basename(filePath);
@@ -53,8 +60,14 @@ async function upsertTrack(filePath, metadata) {
   const artistId = common.artist
     ? await ensureArtist(common.artist)
     : null;
+
+  const albumArtistName = common.albumartist || mainArtist(common.artist);
+  const albumArtistId = albumArtistName
+    ? await ensureArtist(albumArtistName)
+    : artistId;
+
   const albumId = common.album
-    ? await ensureAlbum(common.album, artistId, common.year, common.genre?.join?.(', ') || common.genre)
+    ? await ensureAlbum(common.album, albumArtistId, common.year, common.genre?.join?.(', ') || common.genre)
     : null;
 
   await query(
@@ -115,6 +128,39 @@ async function upsertTrackBasic(filePath) {
   } catch {}
 }
 
+async function mergeDuplicateAlbums() {
+  const { rows: dups } = await query(
+    `SELECT title FROM albums GROUP BY title HAVING count(*) > 1`
+  );
+  let merged = 0;
+
+  for (const { title } of dups) {
+    const { rows: albums } = await query(
+      `SELECT al.id, al.artist_id, a.name as artist_name,
+              (SELECT count(*) FROM tracks t WHERE t.album_id = al.id) as track_count
+       FROM albums al
+       LEFT JOIN artists a ON al.artist_id = a.id
+       WHERE al.title = $1
+       ORDER BY track_count DESC`,
+      [title]
+    );
+    if (albums.length <= 1) continue;
+
+    const mainIdx = albums.findIndex((a) => !/(?:feat\.|ft\.|featuring|vs\.?|&|,\s)/i.test(a.artist_name));
+    const keep = mainIdx >= 0 ? albums[mainIdx] : albums[0];
+
+    for (const a of albums) {
+      if (a.id === keep.id) continue;
+      await query('UPDATE tracks SET album_id = $1 WHERE album_id = $2', [keep.id, a.id]);
+      await query('DELETE FROM albums WHERE id = $1', [a.id]);
+      merged++;
+    }
+  }
+
+  await query(`DELETE FROM artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM tracks WHERE artist_id IS NOT NULL) AND id NOT IN (SELECT DISTINCT artist_id FROM albums WHERE artist_id IS NOT NULL)`);
+  return merged;
+}
+
 export async function scanDirectory(musicDir) {
   const pattern = path.join(musicDir, '**/*.*').replace(/\\/g, '/');
   const files = await glob(pattern, { nocase: true });
@@ -153,13 +199,16 @@ export async function scanDirectory(musicDir) {
   if (removed > 0) console.log(`Removed ${removed} stale track(s) from DB`);
 
   await query(`DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM tracks WHERE album_id IS NOT NULL)`);
-  await query(`DELETE FROM artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM tracks WHERE artist_id IS NOT NULL)`);
+  await query(`DELETE FROM artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM tracks WHERE artist_id IS NOT NULL) AND id NOT IN (SELECT DISTINCT artist_id FROM albums WHERE artist_id IS NOT NULL)`);
 
   const covers = await extractAllMissingCovers();
   console.log(`Covers extracted: ${covers.extracted}/${covers.total}`);
 
+  const merged = await mergeDuplicateAlbums();
+  console.log(`Albums merged: ${merged}`);
+
   console.log(`Scan complete. Processed ${processed} files.`);
-  return { total: audioFiles.length, processed, covers: covers.extracted, removed };
+  return { total: audioFiles.length, processed, covers: covers.extracted, removed, merged };
 }
 
 export async function scanSingleFile(filePath) {

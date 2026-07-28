@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { parseFile } from 'music-metadata';
+import pkg from 'music-metadata';
+const { parseFile } = pkg;
 import { query } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

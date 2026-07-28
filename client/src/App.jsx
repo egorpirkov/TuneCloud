@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { api, setAuthToken, getAuthToken } from './api.js';
 
 function formatDuration(sec) {
@@ -47,9 +48,105 @@ function ToastContainer() {
   );
 }
 
-function TrackRow({ track, onPlay, isPlaying, tracks }) {
+function EditTrackModal({ track, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title: track.title || '',
+    artist: track.artist || '',
+    album: track.album || '',
+    trackNumber: track.track_number || '',
+    genre: track.genre || '',
+    year: track.year || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      const payload = {};
+      if (form.title !== (track.title || '')) payload.title = form.title;
+      if (form.artist !== (track.artist || '')) payload.artist = form.artist;
+      if (form.album !== (track.album || '')) payload.album = form.album;
+      if (String(form.trackNumber) !== String(track.track_number || '')) payload.trackNumber = form.trackNumber ? parseInt(form.trackNumber, 10) : null;
+      if (form.genre !== (track.genre || '')) payload.genre = form.genre;
+      if (String(form.year) !== String(track.year || '')) payload.year = form.year ? parseInt(form.year, 10) : null;
+      await api.updateTags(track.id, payload);
+      toast('Tags updated');
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="glass-strong rounded-2xl p-6 w-full max-w-md mx-4 shadow-glow-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold">Edit Tags</h3>
+          <button onClick={onClose} className="text-surface-500 hover:text-white transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <p className="text-xs text-surface-500 mb-4 truncate">{track.file_name}</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Title</label>
+            <input className="input w-full" value={form.title} onChange={set('title')} />
+          </div>
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Artist</label>
+            <input className="input w-full" value={form.artist} onChange={set('artist')} />
+          </div>
+          <div>
+            <label className="block text-xs text-surface-400 mb-1">Album</label>
+            <input className="input w-full" value={form.album} onChange={set('album')} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-surface-400 mb-1">Track #</label>
+              <input className="input w-full" type="number" min="0" value={form.trackNumber} onChange={set('trackNumber')} />
+            </div>
+            <div>
+              <label className="block text-xs text-surface-400 mb-1">Year</label>
+              <input className="input w-full" type="number" min="0" value={form.year} onChange={set('year')} />
+            </div>
+            <div>
+              <label className="block text-xs text-surface-400 mb-1">Genre</label>
+              <input className="input w-full" value={form.genre} onChange={set('genre')} />
+            </div>
+          </div>
+        </div>
+        {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? 'Saving...' : 'Save'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
   const [hover, setHover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const menuRef = useRef(null);
   const canPlay = track.id != null;
+  const isAdmin = user?.is_admin;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
   return (
     <tr className={`group transition-colors ${canPlay ? 'hover:bg-white/5 cursor-pointer' : ''} ${isPlaying ? 'bg-indigo-500/10 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]' : ''}`}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -68,6 +165,25 @@ function TrackRow({ track, onPlay, isPlaying, tracks }) {
       <td className="px-4 py-2 text-sm text-surface-400 truncate">{track.album || '-'}</td>
       <td className="px-4 py-2 text-sm text-surface-500 text-right">{formatDuration(track.duration)}</td>
       <td className="px-4 py-2 text-sm text-surface-500">{track.format?.toUpperCase() || ''}</td>
+      {isAdmin && (
+        <td className="px-2 py-2 text-sm w-8">
+          <div ref={menuRef} className="relative">
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              className={`p-1 rounded transition-colors text-surface-500 hover:text-white ${menuOpen ? 'text-white' : ''}`}>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 glass-strong rounded-lg py-1 min-w-[120px] z-50 shadow-glass">
+                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditing(true); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
+                  Edit Tags
+                </button>
+              </div>
+            )}
+          </div>
+        </td>
+      )}
+      {editing && <EditTrackModal track={track} onClose={() => setEditing(false)} onSaved={onTagSaved} />}
     </tr>
   );
 }
@@ -205,11 +321,12 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin }) 
   );
 }
 
-function BrowseView({ onPlay, currentTrack }) {
+function BrowseView({ onPlay, currentTrack, user }) {
   const [dirs, setDirs] = useState([]);
   const [path, setPath] = useState('');
   const [loading, setLoading] = useState(true);
-  useEffect(() => { setLoading(true); api.browse(path).then(setDirs).catch(console.error).finally(() => setLoading(false)); }, [path]);
+  const reload = () => api.browse(path).then(setDirs).catch(console.error).finally(() => setLoading(false));
+  useEffect(() => { setLoading(true); reload(); }, [path]);
   const parentPath = path.split('/').slice(0, -1).join('/');
   const files = dirs.filter((e) => e.type === 'file').map((e) => e.meta ? { ...e.meta, fileName: e.name } : { id: null, title: e.name, fileName: e.name });
   return (
@@ -235,19 +352,20 @@ function BrowseView({ onPlay, currentTrack }) {
         <h3 className="text-sm font-medium text-surface-400 mb-2">Files</h3>
         <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
           <thead><tr className="text-surface-500 border-b border-white/10">
-            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>
+            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
           </tr></thead>
-          <tbody>{files.map((t) => <TrackRow key={t.id || t.fileName} track={t} onPlay={() => onPlay(t, files)} tracks={files} isPlaying={currentTrack?.id === t.id} />)}</tbody>
+          <tbody>{files.map((t) => <TrackRow key={t.id || t.fileName} track={t} onPlay={() => onPlay(t, files)} tracks={files} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />)}</tbody>
         </table></div>
       </div>}
     </div>
   );
 }
 
-function AlbumDetail({ album, onPlay, currentTrack, onBack }) {
+function AlbumDetail({ album, onPlay, currentTrack, onBack, user }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { setLoading(true); api.album(album.id).then((t) => setTracks(t)).finally(() => setLoading(false)); }, [album.id]);
+  const reload = () => { setLoading(true); api.album(album.id).then((t) => setTracks(t)).finally(() => setLoading(false)); };
+  useEffect(() => { reload(); }, [album.id]);
 
   const duration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
 
@@ -279,10 +397,10 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack }) {
       {loading ? <p className="text-surface-500">Loading tracks...</p>
       : <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
         <thead><tr className="text-surface-500 border-b border-white/10">
-          <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>
+          <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
         </tr></thead>
         <tbody>{tracks.map((t) => (
-          <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} />
+          <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />
         ))}</tbody>
       </table></div>}
     </div>
@@ -323,7 +441,7 @@ function saveArtistImageCache(cache) {
   try { localStorage.setItem(ARTIST_IMG_CACHE_KEY, JSON.stringify(cache)); } catch {}
 }
 
-function ArtistsView({ onPlay, currentTrack }) {
+function ArtistsView({ onPlay, currentTrack, user }) {
   const [artists, setArtists] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tracks, setTracks] = useState([]);
@@ -362,6 +480,13 @@ function ArtistsView({ onPlay, currentTrack }) {
     filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
     setTracks(filtered);
   };
+  const reloadTracks = async () => {
+    if (!selected) return;
+    const all = await api.tracks({ limit: 500, sort: 'album', order: 'asc' });
+    const filtered = all.tracks.filter((t) => t.artist === selected.name);
+    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
+    setTracks(filtered);
+  };
   return (
     <div className="flex gap-6">
       <div className="w-72 space-y-1 shrink-0">
@@ -383,8 +508,8 @@ function ArtistsView({ onPlay, currentTrack }) {
               <div><h2 className="text-xl font-bold drop-shadow-[0_0_10px_rgba(99,102,241,0.15)]">{selected.name}</h2><p className="text-sm text-surface-400">{tracks.length} tracks</p></div>
             </div>
             <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
-              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th></tr></thead>
-            <tbody>{tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} />)}</tbody>
+              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}</tr></thead>
+            <tbody>{tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reloadTracks} />)}</tbody>
           </table></div>
         </div>
       )}
@@ -392,12 +517,13 @@ function ArtistsView({ onPlay, currentTrack }) {
   );
 }
 
-function SearchView({ onPlay, currentTrack }) {
+function SearchView({ onPlay, currentTrack, user }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
+  const doSearch = (q) => { if (!q.trim()) { setResults(null); return; } api.search(q).then(setResults).catch(console.error); };
   useEffect(() => {
     if (!query.trim()) { setResults(null); return; }
-    const timer = setTimeout(async () => { try { setResults(await api.search(query)); } catch (e) { console.error(e); } }, 300);
+    const timer = setTimeout(() => doSearch(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
   return (
@@ -417,8 +543,8 @@ function SearchView({ onPlay, currentTrack }) {
           ))}</div></div>}
         {results.tracks.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Tracks ({results.tracks.length})</h3>
             <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
-              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th></tr></thead>
-            <tbody>{results.tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, results.tracks)} tracks={results.tracks} isPlaying={currentTrack?.id === t.id} />)}</tbody>
+              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}</tr></thead>
+            <tbody>{results.tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, results.tracks)} tracks={results.tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={() => doSearch(query)} />)}</tbody>
           </table></div></div>}
         {results.tracks.length === 0 && results.albums.length === 0 && results.artists.length === 0 && <p className="text-surface-500">No results found for "{query}"</p>}
       </div>}
@@ -604,11 +730,11 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} />
         <main className="flex-1 overflow-y-auto p-6 pb-28 bg-black/20 backdrop-blur-sm">
-          {view === 'browse' && <BrowseView onPlay={handlePlay} currentTrack={currentTrack} />}
+          {view === 'browse' && <BrowseView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
           {view === 'albums' && <AlbumsView onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
-          {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} />}
-          {view === 'artists' && <ArtistsView onPlay={handlePlay} currentTrack={currentTrack} />}
-          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} />}
+          {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} />}
+          {view === 'artists' && <ArtistsView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
+          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
           {view === 'admin' && <AdminView />}
         </main>
       </div>
