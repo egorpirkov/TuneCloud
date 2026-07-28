@@ -4,30 +4,51 @@
 
 @layer base {
   body {
-    @apply bg-surface-900 text-surface-100 antialiased;
+    @apply bg-surface-950 text-surface-100 antialiased;
+    background: linear-gradient(135deg, #0a0a0f 0%, #14141f 30%, #1a1a2e 60%, #0f0f1a 100%);
+    background-attachment: fixed;
   }
 }
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-150;
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
   }
   .btn-primary {
-    @apply btn bg-indigo-600 hover:bg-indigo-500 text-white;
+    @apply btn bg-indigo-600/80 hover:bg-indigo-500/90 text-white backdrop-blur-sm border border-indigo-400/20 hover:border-indigo-400/30 shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20;
   }
   .btn-ghost {
-    @apply btn bg-transparent hover:bg-surface-700 text-surface-300;
+    @apply btn bg-white/5 hover:bg-white/10 text-surface-300 backdrop-blur-sm border border-white/5 hover:border-white/10;
   }
   .card {
-    @apply bg-surface-800 rounded-xl border border-surface-700/50 p-4;
+    @apply bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass;
+  }
+  .card-hover {
+    @apply card transition-all duration-300 hover:bg-black/40 hover:border-white/20 hover:shadow-glass-lg hover:shadow-indigo-500/5;
   }
   .input {
-    @apply bg-surface-800 border border-surface-600 rounded-lg px-3 py-2 text-surface-100
-           placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 text-surface-100
+           placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400/30
+           transition-all duration-200;
+  }
+  .glass {
+    @apply bg-black/30 backdrop-blur-xl border border-white/10;
+  }
+  .glass-strong {
+    @apply bg-black/50 backdrop-blur-2xl border border-white/10;
   }
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #495057 transparent;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
 }
