@@ -132,10 +132,12 @@ function EditTrackModal({ track, onClose, onSaved }) {
   );
 }
 
-function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
+function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved, onGoToAlbum, onGoToArtist }) {
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [editing, setEditing] = useState(false);
+  const btnRef = useRef(null);
   const menuRef = useRef(null);
   const canPlay = track.id != null;
   const isAdmin = user?.is_admin;
@@ -143,10 +145,19 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target) && btnRef.current && !btnRef.current.contains(e.target)) setMenuOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
+
+  const openMenu = (e) => {
+    e.stopPropagation();
+    const rect = btnRef.current.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setMenuOpen(!menuOpen);
+  };
+
+  const hasGoTo = track.album_id || track.artist;
 
   return (
     <tr className={`group transition-colors ${canPlay ? 'hover:bg-white/5 cursor-pointer' : ''} ${isPlaying ? 'bg-indigo-500/10 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]' : ''}`}
@@ -166,29 +177,43 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved }) {
       <td className="px-4 py-2 text-sm text-surface-400 truncate">{track.album || '-'}</td>
       <td className="px-4 py-2 text-sm text-surface-500 text-right">{formatDuration(track.duration)}</td>
       <td className="px-4 py-2 text-sm text-surface-500">{track.format?.toUpperCase() || ''}</td>
-      {isAdmin && (
-        <td className="px-2 py-2 text-sm w-8">
-          <div ref={menuRef} className="relative">
-            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-              className={`p-1 rounded transition-colors text-surface-500 hover:text-white ${menuOpen ? 'text-white' : ''}`}>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
+      <td className="px-2 py-2 text-sm w-8">
+        {(hasGoTo || isAdmin) && (
+          <button ref={btnRef} onClick={openMenu}
+            className={`p-1 rounded transition-colors text-surface-500 hover:text-white ${menuOpen ? 'text-white' : ''}`}>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
+          </button>
+        )}
+      </td>
+      {menuOpen && createPortal(
+        <div ref={menuRef} className="fixed glass-strong rounded-lg py-1 min-w-[140px] z-[200] shadow-glass" style={{ top: menuPos.top, right: menuPos.right }}>
+          {track.album_id && (
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onGoToAlbum?.({ id: track.album_id, title: track.album }); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
+              Go to Album
             </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 glass-strong rounded-lg py-1 min-w-[120px] z-50 shadow-glass">
-                {canEditTags ? (
-                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditing(true); }}
-                    className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
-                    Edit Tags
-                  </button>
-                ) : (
-                  <span className="block px-3 py-1.5 text-sm text-surface-600 cursor-default">
-                    Read-only ({track.format?.toUpperCase()})
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </td>
+          )}
+          {track.artist && (
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onGoToArtist?.({ name: track.artist }); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
+              Go to Artist
+            </button>
+          )}
+          {(track.album_id || track.artist) && isAdmin && canEditTags && <div className="h-px bg-white/10 my-1"></div>}
+          {isAdmin && (
+            canEditTags ? (
+              <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEditing(true); }}
+                className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
+                Edit Tags
+              </button>
+            ) : (
+              <span className="block px-3 py-1.5 text-sm text-surface-600 cursor-default">
+                Read-only ({track.format?.toUpperCase()})
+              </span>
+            )
+          )}
+        </div>,
+        document.body
       )}
       {editing && <EditTrackModal track={track} onClose={() => setEditing(false)} onSaved={onTagSaved} />}
     </tr>
@@ -354,7 +379,7 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, on
   );
 }
 
-function BrowseView({ onPlay, currentTrack, user }) {
+function BrowseView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick }) {
   const [dirs, setDirs] = useState([]);
   const [path, setPath] = useState('');
   const [loading, setLoading] = useState(true);
@@ -385,16 +410,16 @@ function BrowseView({ onPlay, currentTrack, user }) {
         <h3 className="text-sm font-medium text-surface-400 mb-2">Files</h3>
         <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
           <thead><tr className="text-surface-500 border-b border-white/10">
-            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
+            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
           </tr></thead>
-          <tbody>{files.map((t) => <TrackRow key={t.id || t.fileName} track={t} onPlay={() => onPlay(t, files)} tracks={files} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />)}</tbody>
+          <tbody>{files.map((t) => <TrackRow key={t.id || t.fileName} track={t} onPlay={() => onPlay(t, files)} tracks={files} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />)}</tbody>
         </table></div>
       </div>}
     </div>
   );
 }
 
-function AlbumDetail({ album, onPlay, currentTrack, onBack, user }) {
+function AlbumDetail({ album, onPlay, currentTrack, onBack, user, onAlbumClick, onArtistClick }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const reload = () => { setLoading(true); api.album(album.id).then((t) => setTracks(t)).finally(() => setLoading(false)); };
@@ -430,10 +455,10 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack, user }) {
       {loading ? <p className="text-surface-500">Loading tracks...</p>
       : <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
         <thead><tr className="text-surface-500 border-b border-white/10">
-          <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
+          <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
         </tr></thead>
         <tbody>{tracks.map((t) => (
-          <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />
+          <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />
         ))}</tbody>
       </table></div>}
     </div>
@@ -538,7 +563,7 @@ function ArtistsView({ onPlay, currentTrack, user, onArtistClick }) {
   );
 }
 
-function ArtistDetail({ artist, onPlay, currentTrack, onBack, user }) {
+function ArtistDetail({ artist, onPlay, currentTrack, onBack, user, onAlbumClick, onArtistClick }) {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [artistImage, setArtistImage] = useState(() => loadArtistImageCache()[artist.name] || null);
@@ -606,10 +631,10 @@ function ArtistDetail({ artist, onPlay, currentTrack, onBack, user }) {
           <h3 className="text-sm font-medium text-surface-400 mb-2">{al.title}</h3>
           <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
             <thead><tr className="text-surface-500 border-b border-white/10">
-              <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
+            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
             </tr></thead>
             <tbody>{al.tracks.map((t) => (
-              <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />
+              <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />
             ))}</tbody>
           </table></div>
         </div>
@@ -645,8 +670,8 @@ function SearchView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick })
           ))}</div></div>}
         {results.tracks.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Tracks ({results.tracks.length})</h3>
             <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
-              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}</tr></thead>
-            <tbody>{results.tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, results.tracks)} tracks={results.tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={() => doSearch(query)} />)}</tbody>
+              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th></tr></thead>
+            <tbody>{results.tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, results.tracks)} tracks={results.tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={() => doSearch(query)} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />)}</tbody>
           </table></div></div>}
         {results.tracks.length === 0 && results.albums.length === 0 && results.artists.length === 0 && <p className="text-surface-500">No results found for "{query}"</p>}
       </div>}
@@ -836,11 +861,11 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} onScanComplete={() => setScanVersion((v) => v + 1)} />
         <main className="flex-1 overflow-y-auto p-6 pb-28 bg-black/20 backdrop-blur-sm">
-          {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
+          {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'albums' && <AlbumsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
-          {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} />}
+          {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'artists' && <ArtistsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onArtistClick={handleArtistClick} />}
-          {view === 'artist' && selectedArtist && <ArtistDetail artist={selectedArtist} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToArtists} user={user} />}
+          {view === 'artist' && selectedArtist && <ArtistDetail artist={selectedArtist} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToArtists} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'admin' && <AdminView />}
         </main>

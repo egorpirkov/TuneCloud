@@ -100,7 +100,7 @@ TuneCloud-GitOps/
 - `GET /albums` — все альбомы с cover_path, track_count, total duration
 - `GET /albums/:id` — треки альбома, ORDER BY disc_number, track_number
 - `GET /artists` — все артисты с track_count, album_count
-- `GET /search?q=&limit=30` — ILIKE по tracks/albums/artists, возвращает {tracks, albums, artists}
+- `GET /search?q=&limit=30` — ILIKE по tracks/albums/artists, возвращает {tracks (с cover_path), albums, artists (с track_count, album_count)}
 
 **Streaming:**
 - `GET /stream/:id` — Range requests + hijack (без буферизации в память), MIME по формату
@@ -130,14 +130,17 @@ TuneCloud-GitOps/
 - **LoginView** — JWT авторизация, форма логина
 - **AdminView** — создание пользователей, список с ролями
 - **BrowseView** — файловый браузер по директориям с breadcrumbs, таблица треков
-- **AlbumsView** — сетка альбомов с обложками, клик → AlbumDetail
+- **AlbumsView** — сетка альбомов с обложками, фильтр по title/artist, клик → AlbumDetail
 - **AlbumDetail** — полноценная страница: обложка 192px, мета, треклист
-- **ArtistsView** — список артистов с фото (кэш localStorage), треки сортируются album → track#
-- **SearchView** — debounced поиск, результаты с обложками
+- **ArtistsView** — сетка карточек артистов с фото (Spotify кэш), клик → ArtistDetail
+- **ArtistDetail** — страница артиста: обложка 192px, имя, статистика, треки сгруппированы по альбомам с подзаголовками
+- **SearchView** — debounced поиск, кликабельные альбомы/артисты → их страницы, результаты с обложками
 - **Player** — кастомный UI: обложка, Title + Artist, прогресс-бар, Play/Pause, Prev/Next, Repeat (none/all/one), Shuffle, Volume slider + mouse wheel + Mute, Close
+- **Media Session API** — `navigator.mediaSession.metadata` (title, artist, album, artwork) + action handlers (play/pause/prev/next) для системного плеера
+- **Scan refresh** — `scanVersion` counter в App, инкрементируется после скана; BrowseView/AlbumsView/ArtistsView получают `key={scanVersion}` → remount + re-fetch
 - **Queue** — при клике на трек вся текущая таблица становится очередью
 - **EditTrackModal** — модалка редактирования тегов (title, artist, album, trackNumber, year, genre), portal через createPortal
-- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (admin: Edit Tags / non-MP3: Read-only)
+- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (для всех: Go to Album, Go to Artist; admin: Edit Tags / non-MP3: Read-only)
 - **Document title** — `Артист — Трек` во время проигрывания, `TuneCloud` при закрытии
 - **Cover URL** — проверка на дублирование `/api/` через `path.startsWith('/api/')`
 - **Изображения** — `pointer-events: none` + `user-select: none` + `draggable="false"` (защита от drag & select)
@@ -152,6 +155,7 @@ TuneCloud-GitOps/
 - Post-scan cleanup — удаление пустых альбомов и осиротевших артистов
 - `upsertTrackBasic()` — fallback при ошибке парсинга (filename, size, format)
 - `toInt()` хелпер для каста float → integer (bitrate, sample_rate, year…)
+- Сортировка треков: `COALESCE(t.track_number, 999)` + `t.file_name` как tiebreaker (NULL → конец, одинаковые номера → по имени файла)
 
 ### Spotify API
 
@@ -194,8 +198,13 @@ TuneCloud-GitOps/
 - Стриминг работает (Range requests)
 - Обложки извлекаются из тегов и cover.jpg
 - Кастомный плеер с очередью, repeat, shuffle, громкостью (slider + wheel)
+- Media Session API — системный плеер показывает title/artist/album/artwork + Prev/Next/Pause
 - Редактирование ID3 тегов для MP3
-- Артисты подтягиваются через Spotify API, кэшируются на клиенте
+- Артисты: сетка карточек → страница артиста с треками по альбомам
+- Поиск: кликабельные альбомы и артисты → их страницы
+- Albums/Artists: фильтр + scanVersion refresh (без F5)
+- TrackRow: "Go to Album" / "Go to Artist" в меню (для всех)
+- Сортировка: NULL track_number → fallback на file_name
 - Авторизация (JWT) + роли admin/user
 - Docker Compose + Kubernetes (ArgoCD) деплой
 - Prometheus метрики на `/metrics` + ServiceMonitor

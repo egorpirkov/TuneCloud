@@ -96,7 +96,7 @@ export default async function trackRoutes(fastify) {
 
     const tracks = await query(
       `SELECT t.id, t.title, t.file_name, t.duration, t.track_number, t.format,
-              a.name as artist, al.title as album, al.id as album_id
+              a.name as artist, al.title as album, al.id as album_id, al.cover_path
        FROM tracks t
        LEFT JOIN artists a ON t.artist_id = a.id
        LEFT JOIN albums al ON t.album_id = al.id
@@ -115,7 +115,9 @@ export default async function trackRoutes(fastify) {
     );
 
     const artists = await query(
-      `SELECT a.*
+      `SELECT a.*,
+              (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = a.id) as track_count,
+              (SELECT COUNT(*) FROM albums al WHERE al.artist_id = a.id) as album_count
        FROM artists a
        WHERE a.name ILIKE $1
        LIMIT $2`,

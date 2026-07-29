@@ -41,7 +41,7 @@ export default async function browseRoutes(fastify) {
         if (isAudio) {
           const track = await query(
             `SELECT t.id, t.title, t.duration, t.file_size, t.format, t.track_number,
-                    a.name as artist, al.title as album, al.cover_path
+                    a.name as artist, al.title as album, al.id as album_id, al.cover_path
              FROM tracks t
              LEFT JOIN artists a ON t.artist_id = a.id
              LEFT JOIN albums al ON t.album_id = al.id
