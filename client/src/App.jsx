@@ -487,13 +487,13 @@ function saveArtistImageCache(cache) {
   try { localStorage.setItem(ARTIST_IMG_CACHE_KEY, JSON.stringify(cache)); } catch {}
 }
 
-function ArtistsView({ onPlay, currentTrack, user }) {
+function ArtistsView({ onPlay, currentTrack, user, onArtistClick }) {
   const [artists, setArtists] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [artistImages, setArtistImages] = useState(() => loadArtistImageCache());
 
   useEffect(() => {
+    setLoading(true);
     api.artists().then((list) => {
       setArtists(list);
       const cache = loadArtistImageCache();
@@ -515,55 +515,111 @@ function ArtistsView({ onPlay, currentTrack, user }) {
           }
         });
       }
-    }).catch(console.error);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  const handleSelect = async (artist) => {
-    if (selected?.id === artist.id) { setSelected(null); setTracks([]); return; }
-    setSelected(artist);
-    const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
-    const filtered = all.tracks.filter((t) => t.artist === artist.name);
-    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999) || (a.file_name || '').localeCompare(b.file_name || ''); });
-    setTracks(filtered);
-  };
-  const reloadTracks = async () => {
-    if (!selected) return;
-    const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
-    const filtered = all.tracks.filter((t) => t.artist === selected.name);
-    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999) || (a.file_name || '').localeCompare(b.file_name || ''); });
-    setTracks(filtered);
-  };
+  if (loading) return <p className="text-surface-500">Loading...</p>;
   return (
-    <div className="flex gap-6">
-      <div className="w-72 space-y-1 shrink-0">
-        {artists.map((a) => (
-          <button key={a.id} onClick={() => handleSelect(a)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 ${selected?.id === a.id ? 'glass-strong shadow-glow text-white' : 'glass text-surface-300 hover:bg-white/10'}`}>
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/10">
-              {artistImages[a.name] ? <img src={artistImages[a.name]} alt="" className="w-full h-full object-cover" draggable="false" />
-              : <div className="w-full h-full flex items-center justify-center"><svg className="w-5 h-5 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></div>}
-            </div>
-            <div className="min-w-0 text-left"><span className="font-medium block truncate">{a.name}</span><span className="text-surface-500 text-xs">{a.album_count} albums, {a.track_count} tracks</span></div>
-          </button>
-        ))}
-      </div>
-      {selected && (
-          <div className="flex-1">
-            <div className="flex items-center gap-4 mb-4 glass p-4 rounded-xl">
-              {artistImages[selected.name] && <img src={artistImages[selected.name]} alt={selected.name} className="w-20 h-20 rounded-full object-cover ring-2 ring-indigo-500/30 shadow-lg shadow-indigo-500/10" draggable="false" />}
-              <div><h2 className="text-xl font-bold drop-shadow-[0_0_10px_rgba(99,102,241,0.15)]">{selected.name}</h2><p className="text-sm text-surface-400">{tracks.length} tracks</p></div>
-            </div>
-            <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
-              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}</tr></thead>
-            <tbody>{tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reloadTracks} />)}</tbody>
-          </table></div>
-        </div>
-      )}
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      {artists.map((a) => (
+        <button key={a.id} onClick={() => onArtistClick(a)} className="card-hover w-full text-left group">
+          <div className="aspect-square rounded-xl mb-3 overflow-hidden bg-black/40 ring-1 ring-white/10 shadow-lg shadow-black/20">
+            {artistImages[a.name]
+              ? <img src={artistImages[a.name]} alt={a.name} className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110" draggable="false" />
+              : <div className="w-full h-full flex items-center justify-center"><svg className="w-12 h-12 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></div>}
+          </div>
+          <div className="px-1 pb-2">
+            <h3 className="text-sm font-medium truncate">{a.name}</h3>
+            <p className="text-xs text-surface-500 mt-1 text-right pr-1 leading-relaxed">{a.album_count} albums · {a.track_count} tracks</p>
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
 
-function SearchView({ onPlay, currentTrack, user, onAlbumClick }) {
+function ArtistDetail({ artist, onPlay, currentTrack, onBack, user }) {
+  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [artistImage, setArtistImage] = useState(() => loadArtistImageCache()[artist.name] || null);
+
+  const reload = async () => {
+    setLoading(true);
+    const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
+    const filtered = all.tracks.filter((t) => t.artist === artist.name);
+    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999) || (a.file_name || '').localeCompare(b.file_name || ''); });
+    setTracks(filtered);
+    setLoading(false);
+  };
+  useEffect(() => { reload(); }, [artist.name]);
+
+  useEffect(() => {
+    if (artistImage) return;
+    const cache = loadArtistImageCache();
+    if (cache[artist.name]) { setArtistImage(cache[artist.name]); return; }
+    api.spotifyArtist(artist.name).then((data) => {
+      if (data?.found && data.artist?.image) {
+        setArtistImage(data.artist.image);
+        cache[artist.name] = data.artist.image;
+        saveArtistImageCache(cache);
+      }
+    }).catch(() => {});
+  }, [artist.name]);
+
+  const duration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+
+  const albums = [];
+  const albumMap = {};
+  for (const t of tracks) {
+    const key = t.album || 'Unknown Album';
+    if (!albumMap[key]) { albumMap[key] = { title: key, tracks: [] }; albums.push(albumMap[key]); }
+    albumMap[key].tracks.push(t);
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} className="text-sm text-surface-400 hover:text-white mb-4 flex items-center gap-1 glass w-fit px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-white/10">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        Back to Artists
+      </button>
+
+      <div className="flex gap-6 mb-8 glass p-6 rounded-2xl">
+        <div className="w-48 h-48 rounded-xl overflow-hidden bg-black/40 shrink-0 shadow-lg shadow-indigo-500/10 ring-1 ring-white/10">
+          {artistImage
+            ? <img src={artistImage} alt={artist.name} className="w-full h-full object-cover" draggable="false" />
+            : <div className="w-full h-full flex items-center justify-center"><svg className="w-16 h-16 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></div>}
+        </div>
+        <div className="flex flex-col justify-end">
+          <p className="text-xs uppercase tracking-wider text-surface-400 mb-1">Artist</p>
+          <h2 className="text-3xl font-bold mb-1 text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.15)]">{artist.name}</h2>
+          <div className="flex items-center gap-3 mt-2 text-sm text-surface-400">
+            <span>{artist.album_count} albums</span>
+            <span>{tracks.length} tracks</span>
+            <span>{formatDuration(duration)}</span>
+          </div>
+        </div>
+      </div>
+
+      {loading ? <p className="text-surface-500">Loading tracks...</p>
+      : albums.map((al) => (
+        <div key={al.title} className="mb-6">
+          <h3 className="text-sm font-medium text-surface-400 mb-2">{al.title}</h3>
+          <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
+            <thead><tr className="text-surface-500 border-b border-white/10">
+              <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th>{user?.is_admin && <th className="w-8"></th>}
+            </tr></thead>
+            <tbody>{al.tracks.map((t) => (
+              <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} />
+            ))}</tbody>
+          </table></div>
+        </div>
+      ))
+      }
+    </div>
+  );
+}
+
+function SearchView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const doSearch = (q) => { if (!q.trim()) { setResults(null); return; } api.search(q).then(setResults).catch(console.error); };
@@ -579,7 +635,7 @@ function SearchView({ onPlay, currentTrack, user, onAlbumClick }) {
         <input className="input w-full pl-10" placeholder="Search tracks, albums, artists..." value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
       </div>
       {results && <div className="space-y-6">
-        {results.artists.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Artists ({results.artists.length})</h3><div className="flex flex-wrap gap-2">{results.artists.map((a) => <span key={a.id} className="px-3 py-1 bg-white/5 backdrop-blur-sm rounded-full text-sm border border-white/10">{a.name}</span>)}</div></div>}
+        {results.artists.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Artists ({results.artists.length})</h3><div className="flex flex-wrap gap-2">{results.artists.map((a) => <button key={a.id} onClick={() => onArtistClick?.(a)} className="px-3 py-1 bg-white/5 backdrop-blur-sm rounded-full text-sm border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200">{a.name}</button>)}</div></div>}
         {results.albums.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Albums ({results.albums.length})</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">{results.albums.map((a) => (
             <button key={a.id} onClick={() => onAlbumClick?.(a)} className="card-hover text-left">
@@ -699,6 +755,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState('browse');
   const [selectedAlbum, setSelectedAlbum] = useState(null);
+  const [selectedArtist, setSelectedArtist] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [repeat, setRepeat] = useState('none');
@@ -755,8 +812,10 @@ export default function App() {
 
   const handleAlbumClick = (album) => { setSelectedAlbum(album); setView('album'); };
   const handleBackToAlbums = () => { setSelectedAlbum(null); setView('albums'); };
-  const handleViewChange = (v) => { setSelectedAlbum(null); setView(v); };
-  const handleHome = () => { setSelectedAlbum(null); setView('browse'); };
+  const handleArtistClick = (artist) => { setSelectedArtist(artist); setView('artist'); };
+  const handleBackToArtists = () => { setSelectedArtist(null); setView('artists'); };
+  const handleViewChange = (v) => { setSelectedAlbum(null); setSelectedArtist(null); setView(v); };
+  const handleHome = () => { setSelectedAlbum(null); setSelectedArtist(null); setView('browse'); };
 
   const hasPrev = pickPrev() >= 0;
   const hasNext = pickNext() >= 0;
@@ -780,8 +839,9 @@ export default function App() {
           {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
           {view === 'albums' && <AlbumsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
           {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} />}
-          {view === 'artists' && <ArtistsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
-          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} />}
+          {view === 'artists' && <ArtistsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onArtistClick={handleArtistClick} />}
+          {view === 'artist' && selectedArtist && <ArtistDetail artist={selectedArtist} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToArtists} user={user} />}
+          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'admin' && <AdminView />}
         </main>
       </div>
