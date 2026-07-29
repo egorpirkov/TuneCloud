@@ -203,6 +203,29 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
   const [muted, setMuted] = useState(false);
 
   useEffect(() => { document.title = track ? `${track.artist || 'Unknown'} — ${track.title || track.fileName}` : 'TuneCloud'; }, [track]);
+  useEffect(() => {
+    if (!track || !('mediaSession' in navigator)) return;
+    const artwork = track.cover_path ? [{ src: api.coverUrl(track.cover_path), sizes: '512x512', type: 'image/jpeg' }] : [];
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title || track.file_name || track.fileName || 'Unknown',
+      artist: track.artist || 'Unknown',
+      album: track.album || '',
+      artwork,
+    });
+  }, [track]);
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play', () => { if (audioRef.current) audioRef.current.play(); });
+    navigator.mediaSession.setActionHandler('pause', () => { if (audioRef.current) audioRef.current.pause(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { if (onPrev) onPrev(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { if (onNext) onNext(); });
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+    };
+  }, [onNext, onPrev]);
   useEffect(() => { const el = audioRef.current; if (el) el.volume = muted ? 0 : volume; }, [volume, muted, track]);
   useEffect(() => {
     const el = audioRef.current; if (!el) return;
