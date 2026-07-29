@@ -7,11 +7,11 @@ export default async function trackRoutes(fastify) {
     const dir = order === 'desc' ? 'DESC' : 'ASC';
     const sortMap = {
       title: `t.title ${dir}`,
-      artist: `a.name ${dir}, al.title, t.disc_number, t.track_number`,
-      album: `al.title ${dir}, t.disc_number, t.track_number`,
+      artist: `a.name ${dir}, al.title, t.disc_number, COALESCE(t.track_number, 999), t.file_name`,
+      album: `al.title ${dir}, t.disc_number, COALESCE(t.track_number, 999), t.file_name`,
       duration: `t.duration ${dir}`,
       created_at: `t.created_at ${dir}`,
-      track_number: `t.disc_number, t.track_number ${dir}`,
+      track_number: `t.disc_number, COALESCE(t.track_number, 999) ${dir}, t.file_name`,
     };
     const orderClause = sortMap[sort] || 't.title ASC';
 
@@ -70,8 +70,8 @@ export default async function trackRoutes(fastify) {
        FROM tracks t
        LEFT JOIN artists a ON t.artist_id = a.id
        LEFT JOIN albums al ON t.album_id = al.id
-       WHERE t.album_id = $1
-       ORDER BY t.disc_number, t.track_number`,
+        WHERE t.album_id = $1
+        ORDER BY t.disc_number, COALESCE(t.track_number, 999), t.file_name`,
       [id]
     );
     return rows;

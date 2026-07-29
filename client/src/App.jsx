@@ -285,7 +285,7 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
   );
 }
 
-function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin }) {
+function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, onScanComplete }) {
   const [scanning, setScanning] = useState(false);
   const links = [
     { id: 'browse', label: 'Browse', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
@@ -310,7 +310,7 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin }) 
       <div className="p-3 border-t border-white/10 space-y-2">
         <button disabled={scanning} onClick={async () => {
           setScanning(true);
-          try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); }
+          try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); onScanComplete?.(); }
           catch (e) { toast('Scan error: ' + e.message, 'error'); }
           finally { setScanning(false); }
         }} className={`w-full btn-ghost text-xs ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}>{scanning ? 'Scanning...' : 'Rescan Library'}</button>
@@ -420,11 +420,23 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack, user }) {
 function AlbumsView({ onPlay, currentTrack, onAlbumClick }) {
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
   useEffect(() => { setLoading(true); api.albums().then(setAlbums).finally(() => setLoading(false)); }, []);
+  const filtered = filter.trim()
+    ? albums.filter((a) => {
+        const q = filter.toLowerCase();
+        return (a.title || '').toLowerCase().includes(q) || (a.artist || '').toLowerCase().includes(q);
+      })
+    : albums;
   if (loading) return <p className="text-surface-500">Loading...</p>;
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {albums.map((a) => (
+    <div>
+      <div className="relative mb-5">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <input className="input w-full pl-10" placeholder="Filter albums..." value={filter} onChange={(e) => setFilter(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {filtered.map((a) => (
         <button key={a.id} onClick={() => onAlbumClick(a)} className="card-hover w-full text-left group">
           <div className="aspect-square rounded-xl mb-3 overflow-hidden bg-black/40 ring-1 ring-white/10 shadow-lg shadow-black/20">
             {a.cover_path ? <img src={api.coverUrl(a.cover_path)} alt={a.title} className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110" draggable="false" />
@@ -437,6 +449,7 @@ function AlbumsView({ onPlay, currentTrack, onAlbumClick }) {
           </div>
         </button>
       ))}
+      </div>
     </div>
   );
 }
@@ -487,14 +500,14 @@ function ArtistsView({ onPlay, currentTrack, user }) {
     setSelected(artist);
     const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
     const filtered = all.tracks.filter((t) => t.artist === artist.name);
-    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
+    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999) || (a.file_name || '').localeCompare(b.file_name || ''); });
     setTracks(filtered);
   };
   const reloadTracks = async () => {
     if (!selected) return;
     const all = await api.tracks({ limit: 10000, sort: 'album', order: 'asc' });
     const filtered = all.tracks.filter((t) => t.artist === selected.name);
-    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999); });
+    filtered.sort((a, b) => { const aa = a.album || '', bb = b.album || ''; if (aa !== bb) return aa.localeCompare(bb); return (a.track_number || 999) - (b.track_number || 999) || (a.file_name || '').localeCompare(b.file_name || ''); });
     setTracks(filtered);
   };
   return (
@@ -527,7 +540,7 @@ function ArtistsView({ onPlay, currentTrack, user }) {
   );
 }
 
-function SearchView({ onPlay, currentTrack, user }) {
+function SearchView({ onPlay, currentTrack, user, onAlbumClick }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const doSearch = (q) => { if (!q.trim()) { setResults(null); return; } api.search(q).then(setResults).catch(console.error); };
@@ -546,10 +559,10 @@ function SearchView({ onPlay, currentTrack, user }) {
         {results.artists.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Artists ({results.artists.length})</h3><div className="flex flex-wrap gap-2">{results.artists.map((a) => <span key={a.id} className="px-3 py-1 bg-white/5 backdrop-blur-sm rounded-full text-sm border border-white/10">{a.name}</span>)}</div></div>}
         {results.albums.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Albums ({results.albums.length})</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">{results.albums.map((a) => (
-            <div key={a.id} className="card-hover">
+            <button key={a.id} onClick={() => onAlbumClick?.(a)} className="card-hover text-left">
               {a.cover_path ? <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-black/40 ring-1 ring-white/10"><img src={api.coverUrl(a.cover_path)} alt="" className="w-full h-full object-cover" draggable="false" /></div> : null}
               <h4 className="text-sm font-medium truncate">{a.title}</h4><p className="text-xs text-surface-400 truncate">{a.artist}</p>
-            </div>
+            </button>
           ))}</div></div>}
         {results.tracks.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Tracks ({results.tracks.length})</h3>
             <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
@@ -668,6 +681,7 @@ export default function App() {
   const [repeat, setRepeat] = useState('none');
   const [shuffle, setShuffle] = useState(false);
   const [volume, setVolume] = useState(() => { try { return parseFloat(localStorage.getItem(VOL_KEY)) || 0.7; } catch { return 0.7; } });
+  const [scanVersion, setScanVersion] = useState(0);
 
   useEffect(() => {
     if (getAuthToken()) {
@@ -738,13 +752,13 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} />
+        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} onScanComplete={() => setScanVersion((v) => v + 1)} />
         <main className="flex-1 overflow-y-auto p-6 pb-28 bg-black/20 backdrop-blur-sm">
-          {view === 'browse' && <BrowseView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
-          {view === 'albums' && <AlbumsView onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
+          {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
+          {view === 'albums' && <AlbumsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
           {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} />}
-          {view === 'artists' && <ArtistsView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
-          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
+          {view === 'artists' && <ArtistsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} />}
+          {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} />}
           {view === 'admin' && <AdminView />}
         </main>
       </div>

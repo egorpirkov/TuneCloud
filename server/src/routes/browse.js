@@ -70,7 +70,7 @@ export default async function browseRoutes(fastify) {
        FROM tracks t
        LEFT JOIN artists a ON t.artist_id = a.id
        LEFT JOIN albums al ON t.album_id = al.id
-       ORDER BY al.title, t.disc_number, t.track_number`
+       ORDER BY al.title, t.disc_number, COALESCE(t.track_number, 999), t.file_name`
     );
 
     const albums = {};
