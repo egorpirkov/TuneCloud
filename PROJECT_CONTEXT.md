@@ -140,7 +140,8 @@ TuneCloud-GitOps/
 - **Scan refresh** — `scanVersion` counter в App, инкрементируется после скана; BrowseView/AlbumsView/ArtistsView получают `key={scanVersion}` → remount + re-fetch
 - **Queue** — при клике на трек вся текущая таблица становится очередью
 - **EditTrackModal** — модалка редактирования тегов (title, artist, album, trackNumber, year, genre), portal через createPortal
-- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (для всех: Go to Album, Go to Artist; admin: Edit Tags / non-MP3: Read-only)
+- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (для всех: Go to Album, Go to Artist; admin: Edit Tags / non-MP3: Read-only). Portal через createPortal с position:fixed + z-[200]
+- **Навигация** — `navHistory` stack для Back ( Browse→Album/Artist → Back), `browsePath` в App state (сохраняется path BrowseView между mount/unmount)
 - **Document title** — `Артист — Трек` во время проигрывания, `TuneCloud` при закрытии
 - **Cover URL** — проверка на дублирование `/api/` через `path.startsWith('/api/')`
 - **Изображения** — `pointer-events: none` + `user-select: none` + `draggable="false"` (защита от drag & select)

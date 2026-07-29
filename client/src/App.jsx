@@ -188,7 +188,7 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved, onGoToAl
       {menuOpen && createPortal(
         <div ref={menuRef} className="fixed glass-strong rounded-lg py-1 min-w-[140px] z-[200] shadow-glass" style={{ top: menuPos.top, right: menuPos.right }}>
           {track.album_id && (
-            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onGoToAlbum?.({ id: track.album_id, title: track.album }); }}
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onGoToAlbum?.({ id: track.album_id, title: track.album, cover_path: track.cover_path }); }}
               className="w-full text-left px-3 py-1.5 text-sm text-surface-300 hover:bg-white/10 hover:text-white transition-colors">
               Go to Album
             </button>
@@ -379,10 +379,11 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, on
   );
 }
 
-function BrowseView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick }) {
+function BrowseView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick, browsePath, onBrowsePathChange }) {
   const [dirs, setDirs] = useState([]);
-  const [path, setPath] = useState('');
   const [loading, setLoading] = useState(true);
+  const path = browsePath;
+  const setPath = onBrowsePathChange;
   const reload = () => api.browse(path).then(setDirs).catch(console.error).finally(() => setLoading(false));
   useEffect(() => { setLoading(true); reload(); }, [path]);
   const parentPath = path.split('/').slice(0, -1).join('/');
@@ -431,7 +432,7 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack, user, onAlbumClick, 
     <div>
       <button onClick={onBack} className="text-sm text-surface-400 hover:text-white mb-4 flex items-center gap-1 glass w-fit px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-white/10">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        Back to Albums
+        Back
       </button>
 
       <div className="flex gap-6 mb-8 glass p-6 rounded-2xl">
@@ -605,7 +606,7 @@ function ArtistDetail({ artist, onPlay, currentTrack, onBack, user, onAlbumClick
     <div>
       <button onClick={onBack} className="text-sm text-surface-400 hover:text-white mb-4 flex items-center gap-1 glass w-fit px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-white/10">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        Back to Artists
+        Back
       </button>
 
       <div className="flex gap-6 mb-8 glass p-6 rounded-2xl">
@@ -787,6 +788,8 @@ export default function App() {
   const [shuffle, setShuffle] = useState(false);
   const [volume, setVolume] = useState(() => { try { return parseFloat(localStorage.getItem(VOL_KEY)) || 0.7; } catch { return 0.7; } });
   const [scanVersion, setScanVersion] = useState(0);
+  const [navHistory, setNavHistory] = useState([]);
+  const [browsePath, setBrowsePath] = useState('');
 
   useEffect(() => {
     if (getAuthToken()) {
@@ -835,12 +838,12 @@ export default function App() {
   const handleVolume = (v) => { setVolume(v); localStorage.setItem(VOL_KEY, v); };
   const closePlayer = () => { setQueue([]); setQueueIndex(-1); document.title = 'TuneCloud'; };
 
-  const handleAlbumClick = (album) => { setSelectedAlbum(album); setView('album'); };
-  const handleBackToAlbums = () => { setSelectedAlbum(null); setView('albums'); };
-  const handleArtistClick = (artist) => { setSelectedArtist(artist); setView('artist'); };
-  const handleBackToArtists = () => { setSelectedArtist(null); setView('artists'); };
-  const handleViewChange = (v) => { setSelectedAlbum(null); setSelectedArtist(null); setView(v); };
-  const handleHome = () => { setSelectedAlbum(null); setSelectedArtist(null); setView('browse'); };
+  const handleAlbumClick = (album) => { setNavHistory((h) => [...h, view]); setSelectedAlbum(album); setView('album'); };
+  const handleBackToAlbums = () => { setSelectedAlbum(null); const last = navHistory[navHistory.length - 1]; setNavHistory((h) => h.slice(0, -1)); setView(last || 'albums'); };
+  const handleArtistClick = (artist) => { setNavHistory((h) => [...h, view]); setSelectedArtist(artist); setView('artist'); };
+  const handleBackToArtists = () => { setSelectedArtist(null); const last = navHistory[navHistory.length - 1]; setNavHistory((h) => h.slice(0, -1)); setView(last || 'artists'); };
+  const handleViewChange = (v) => { setSelectedAlbum(null); setSelectedArtist(null); setNavHistory([]); setView(v); };
+  const handleHome = () => { setSelectedAlbum(null); setSelectedArtist(null); setNavHistory([]); setView('browse'); };
 
   const hasPrev = pickPrev() >= 0;
   const hasNext = pickNext() >= 0;
@@ -861,7 +864,7 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} onScanComplete={() => setScanVersion((v) => v + 1)} />
         <main className="flex-1 overflow-y-auto p-6 pb-28 bg-black/20 backdrop-blur-sm">
-          {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
+          {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} browsePath={browsePath} onBrowsePathChange={setBrowsePath} />}
           {view === 'albums' && <AlbumsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
           {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'artists' && <ArtistsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onArtistClick={handleArtistClick} />}
