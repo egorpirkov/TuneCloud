@@ -86,8 +86,8 @@ jobs:
           CLIENT_IMAGE="ghcr.io/${{ github.repository_owner }}/tunecloud-client:$TAG"
           SERVER_IMAGE="ghcr.io/${{ github.repository_owner }}/tunecloud-server:$TAG"
           
-          yq -i ".spec.template.spec.containers[0].image = \"$CLIENT_IMAGE\"" client-deployment.yaml
-          yq -i ".spec.template.spec.containers[0].image = \"$SERVER_IMAGE\"" server-deployment.yaml
+          yq -i ".client.image = \"$CLIENT_IMAGE\"" tunecloud/values.yaml
+          yq -i ".server.image = \"$SERVER_IMAGE\"" tunecloud/values.yaml
 
       - name: Commit and Push
         uses: stefanzweifel/git-auto-commit-action@v5
