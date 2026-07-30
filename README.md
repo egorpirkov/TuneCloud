@@ -1,7 +1,10 @@
 # TuneCloud
 
-**Self-hosted music browser & player** — кросс между Filebrowser и Navidrome.
-Сканирует локальную музыкальную библиотеку, парсит теги, подтягивает обложки и фото артистов через Spotify.
+**Self-hosted music browser & player** — что-то между Filebrowser и Navidrome.
+Сканирует локальную музыкальную библиотеку, парсит теги, подтягивает фото артистов через Spotify.
+
+
+![Скриншот интерфейса](pictures/screenshot.png)
 
 ---
 
@@ -35,7 +38,8 @@
 | **Изображения** | Spotify Web API (Client Credentials), CDN с кэшированием |
 | **Авторизация** | JWT (bcrypt + jsonwebtoken), роли admin/user |
 | **Метрики** | fastify-metrics → Prometheus `/metrics` |
-| **Деплой** | Docker Compose / Kubernetes (ArgoCD GitOps) |
+| **Мониторинг** | kube-prometheus-stack (Prometheus + Grafana + Alertmanager) |
+| **Деплой** | Docker Compose / Kubernetes (ArgoCD GitOps + Helm) |
 
 ---
 
@@ -46,16 +50,19 @@
 - **Обложки** — извлекаются из тегов аудиофайлов, из `cover.jpg`/`folder.jpg` в папке альбома
 - **Стриминг** — HTML5 Audio с Range-запросами (seek, прогресс)
 - **Браузер файлов** — навигация по директориям музыки с breadcrumbs
-- **Альбомы** — сетка с обложками, клик → страница альбома (треки, метаданные)
-- **Артисты** — список с фотографиями из Spotify (кэшируются в localStorage), треки сгруппированы по альбомам
-- **Поиск** — полнотекстовый по трекам, альбомам, артистам (ILIKE)
+- **Альбомы** — сетка с обложками, фильтр по title/artist, клик → страница альбома (треки, метаданные)
+- **Артисты** — сетка карточек с фото из Spotify (кэшируются в localStorage), треки сгруппированы по альбомам
+- **Поиск** — полнотекстовый по трекам, альбомам, артистам (ILIKE), кликабельные результаты
 - **Плеер** — кастомный UI: обложка, прогресс-бар, Prev/Next, Repeat (none/all/one), Shuffle, громкость (slider + mouse wheel), Mute
+- **Media Session API** — интеграция с системным плеером ОС (оповещения, клавиши media)
 - **Очередь** — двойной клик или кнопка play запускает весь текущий список
 - **Редактирование тегов** — запись ID3 для MP3 (title, artist, album, trackNumber, year, genre), non-MP3 — read-only
+- **Навигация** — Back button с navHistory стеком, сохранение позиции в Browse между переходами
 - **Spotify** — поиск артистов с точным совпадением имени, подгрузка фото
 - **Авторизация** — JWT, роли admin/user, admin-only эндпоинты (scan, register)
 - **Аватарки артистов** — загружаются при открытии вкладки, кэшируются в localStorage
 - **Метрики** — Prometheus-совместимый эндпоинт `/metrics` (request duration, rate, etc.)
+- **Мониторинг** — Grafana дашборды через kube-prometheus-stack
 
 ---
 
@@ -206,21 +213,6 @@ tunecloud/                          # Основной репозиторий
         └── App.jsx                 # всё приложение (SFC)
 ```
 
-GitOps манифесты в отдельном репозитории `egorpirkov/TuneCloud-GitOps`:
-```
-TuneCloud-GitOps/
-├── client-deployment.yaml          # Deployment Nginx (ghcr.io image)
-├── client-service.yaml             # NodePort :30080
-├── server-deployment.yaml          # Deployment API (ghcr.io image, secrets)
-├── server-service.yaml             # ClusterIP :4000
-├── server-monitor.yaml             # Service + ServiceMonitor для Prometheus
-├── postgres-deployment.yaml        # PostgreSQL 16 + init script + readinessProbe
-├── postgres-service.yaml           # ClusterIP :5432
-├── postgres-configmap.yaml         # init.sql (схема БД)
-├── postgres-pvc.yaml               # PersistentVolumeClaim 2Gi (данные)
-└── covers-pvc.yaml                 # PersistentVolumeClaim 2Gi (обложки)
-```
-
 ---
 
 ## Деплой
@@ -243,28 +235,150 @@ docker compose logs -f api
 - **api** — Fastify сервер (port 4000)
 - **web** — Nginx + статика (port 80)
 
-### Kubernetes (ArgoCD GitOps)
+---
 
-Кластер: **k3s** (Arch Linux, `/mnt/HDD/Muzl0` — музыка).
+### Kubernetes (ArgoCD GitOps + Helm)
 
-| Ресурс | Описание |
-|--------|----------|
-| `server-deployment.yaml` | Deployment API (ghcr.io image, env: DATABASE_URL, MUSIC_DIR, ADMIN_*, secrets) |
-| `server-service.yaml` | ClusterIP Service :4000 |
-| `server-monitor.yaml` | Service + ServiceMonitor (Prometheus, `/metrics`) |
-| `client-deployment.yaml` | Deployment Nginx (ghcr.io image) |
-| `client-service.yaml` | NodePort :30080 |
-| `postgres-deployment.yaml` | PostgreSQL 16 + init script + readinessProbe |
-| `postgres-service.yaml` | ClusterIP Service :5432 |
-| `postgres-configmap.yaml` | init.sql (схема БД) |
-| `postgres-pvc.yaml` | PersistentVolumeClaim 2Gi (данные) |
-| `covers-pvc.yaml` | PersistentVolumeClaim 2Gi (обложки) |
+Кластер: **k3s** на Arch Linux, музыка на `/mnt/HDD/Muzl0`.
 
-Деплой:
-1. Push в `main` → GitHub Actions собирает образы → пушит в `ghcr.io/egorpirkov/` с тегами `sha-XXXXXXX`
-2. GitHub Actions обновляет image tags в GitOps репозитории и пушит
-3. ArgoCD синхронизирует кластер с GitOps репозиторием
-4. Секреты (`spotify-secret`, `jwt-secret`, `ghcr-secret`) — Kubernetes Secrets
+#### CI/CD Pipeline
+
+![CI Pipeline](pictures/1.png)
+![CD Pipeline & GitOps](pictures/2.png)
+
+```
+┌─────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐
+│  git push   │───→│ GitHub       │───→│ ghcr.io      │───→│ GitOps   │
+│  main       │    │ Actions      │    │ (Docker      │    │ Helm     │
+│             │    │              │    │  images)     │    │ chart    │
+└─────────────┘    │ 1. build     │    └──────────────┘    └────┬─────┘
+                   │ 2. push      │                             │
+                   │ 3. yq patch  │←────────────────────────────┘
+                   │    values.yaml                             │
+                   │ 4. git push  │                             │
+                   └──────────────┘                             │
+                                                                ▼
+                                                      ┌──────────────┐
+                                                      │   ArgoCD     │
+                                                      │  sync ──→    │
+                                                      │  k3s cluster │
+                                                      └──────────────┘
+```
+
+**Шаги CI/CD:**
+
+1. **Push в `main`** → GitHub Actions запускает workflow
+2. **Docker build** — собираются `client/Dockerfile` (node → nginx) и `server/Dockerfile` (node:22-alpine)
+3. **Push в ghcr.io** — образы пушатся с тегом `sha-<SHORT_SHA:0:7>`:
+   - `ghcr.io/egorpirkov/tunecloud-client:sha-XXXXXXX`
+   - `ghcr.io/egorpirkov/tunecloud-server:sha-XXXXXXX`
+4. **Обновление GitOps** — `yq` патчит `values.yaml` в Helm-чарте:
+   ```bash
+   yq -i ".client.image = \"$CLIENT_IMAGE\"" tunecloud/values.yaml
+   yq -i ".server.image = \"$SERVER_IMAGE\"" tunecloud/values.yaml
+   ```
+5. **Auto-commit** — `stefanzweifel/git-auto-commit-action` коммитит и пушит изменения в GitOps репозиторий
+6. **ArgoCD sync** — автоматически подхватывает изменения и деплоит в k3s
+
+#### GitOps Repository (Helm Chart)
+
+Репозиторий [`egorpirkov/TuneCloud-GitOps`](https://github.com/egorpirkov/TuneCloud-GitOps) — это **Helm chart**, а не плоские YAML-манифесты:
+
+```
+TuneCloud-GitOps/
+└── tunecloud/                        # Helm chart
+    ├── Chart.yaml                    # apiVersion: v2, name: tunecloud, version: 0.1.0
+    ├── values.yaml                   # image теги (патчатся CI), domain, replicas
+    ├── .helmignore
+    └── templates/
+        ├── server-deployment.yaml    # Deployment API
+        ├── server-service.yaml       # ClusterIP :4000
+        ├── server-monitor.yaml       # Service + ServiceMonitor (Prometheus /metrics)
+        ├── client-deployment.yaml    # Deployment Nginx
+        ├── client-service.yaml       # NodePort :30080
+        ├── ingress.yaml              # Ingress: tunecloud.local → client, /api → server
+        ├── grafana-ingress.yaml      # Ingress: grafana.tunecloud.local → monitoring-grafana
+        ├── postgres-deployment.yaml  # PostgreSQL 16 + readinessProbe
+        ├── postgres-service.yaml     # ClusterIP :5432
+        ├── postgres-configmap.yaml   # init.sql (схема БД)
+        ├── postgres-pvc.yaml         # PersistentVolumeClaim 2Gi (данные)
+        └── covers-pvc.yaml           # PersistentVolumeClaim 2Gi (обложки)
+```
+
+**`values.yaml`** (патчится CI через `yq`):
+```yaml
+global:
+  domain: tunecloud.local
+  grafanaDomain: grafana.tunecloud.local
+server:
+  image: ghcr.io/egorpirkov/tunecloud-server:sha-XXXXXXX
+  replicas: 1
+client:
+  image: ghcr.io/egorpirkov/tunecloud-client:sha-XXXXXXX
+  replicas: 1
+```
+
+#### Kubernetes Resources
+
+| Ресурс | Kind | Описание |
+|--------|------|----------|
+| `tunecloud-server` | Deployment | API сервер (port 4000), env: DATABASE_URL, MUSIC_DIR, ADMIN_*, Spotify/JWT secrets |
+| `tunecloud-server` | ClusterIP Service | Frontend для API |
+| `tunecloud-server-svc` | Service + ServiceMonitor | Scraping `/metrics` для Prometheus |
+| `tunecloud-client` | Deployment | Nginx (port 80), статический фронтенд |
+| `tunecloud-client` | NodePort Service | Доступ снаружи через :30080 |
+| `tunecloud-ingress` | Ingress | `tunecloud.local` → client:80, `tunecloud.local/api` → server:4000 |
+| `tunecloud-db` | Deployment | PostgreSQL 16-alpine, readinessProbe (`pg_isready`) |
+| `tunecloud-db` | ClusterIP Service | PostgreSQL :5432 |
+| `postgres-init-script` | ConfigMap | `init.sql` — создание таблиц artists/albums/tracks/users + индексы |
+| `postgres-pvc` | PVC | 2Gi ReadWriteOnce — данные PostgreSQL |
+| `covers-pvc` | PVC | 2Gi ReadWriteOnce — обложки альбомов |
+| `grafana-ingress` | Ingress | `grafana.tunecloud.local` → monitoring-grafana (ns: monitoring) |
+
+**Kubernetes Secrets** (создаются вручную, не в чарте):
+| Secret | Назначение |
+|--------|-----------|
+| `ghcr-secret` | imagePullSecret для pull образов из ghcr.io |
+| `spotify-secret` | SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET |
+| `jwt-secret` | JWT_SECRET для подписи токенов |
+
+**Host Path**: сервер монтирует музыку с ноды через `hostPath: /mnt/HDD/Muzl0` → `/music`.
+
+#### Мониторинг
+
+![Monitoring Stack](pictures/3.png)
+
+Кластер включает **kube-prometheus-stack** (Helm chart) с полным стеком:
+
+| Компонент | Описание |
+|-----------|----------|
+| **Prometheus** | Сбор метрик, ServiceMonitor для TuneCloud `/metrics` |
+| **Grafana** | Дашборды, доступ через `grafana.tunecloud.local` |
+| **Alertmanager** | Алерты |
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│ TuneCloud server │────→│ Prometheus       │────→│ Grafana          │
+│ /metrics         │     │ (kube-prom-stack)│     │ grafana.         │
+│ (fastify-metrics)│     │                  │     │ tunecloud.local  │
+└──────────────────┘     │ ServiceMonitor   │     └──────────────────┘
+                         │ → scrape /metrics│
+                         └──────────────────┘
+```
+
+#### Ручной деплой (без ArgoCD)
+
+```bash
+# Установка Helm chart
+helm install tunecloud ./tunecloud -n tunecloud --create-namespace
+
+# Обновление
+helm upgrade tunecloud ./tunecloud -n tunecloud
+
+# Проверка
+kubectl get pods -n tunecloud
+kubectl logs -f deployment/tunecloud-server -n tunecloud
+```
 
 ---
 
@@ -299,9 +413,18 @@ users     (id, username UNIQUE, password_hash, is_admin, created_at)
 - **Автоматический seed**: при запуске создаётся admin-пользователь из `ADMIN_USERNAME`/`ADMIN_PASSWORD`
 - **Теги**: запись только для MP3 (node-id3). FLAC/OGG/Opus/M4A — read-only (нет JS-библиотеки для записи)
 - **Scan UI**: кнопка блокируется во время сканирования, показывает "Scanning...", тост без reload
+- **Навигация**: navHistory стек для Back, browsePath в App state сохраняет позицию в файловом браузере
 
 ---
+
+## Screenshots
+
+![CI/CD Pipeline & Architecture](pictures/full.png)
 
 ## License
 
 GPL v3.0
+
+---
+
+
