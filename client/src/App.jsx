@@ -163,7 +163,7 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved, onGoToAl
     <tr className={`group transition-colors ${canPlay ? 'hover:bg-white/5 cursor-pointer' : ''} ${isPlaying ? 'bg-indigo-500/10 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]' : ''}`}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       onDoubleClick={() => canPlay && onPlay?.(track)}>
-      <td className="px-4 py-2 text-sm w-10 text-center relative">
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm w-8 sm:w-10 text-center relative">
         <span className={`inline-flex items-center justify-center w-4 h-4 ${isPlaying ? 'text-indigo-300' : 'text-surface-500'} ${hover && canPlay ? 'invisible' : ''}`}>{track.track_number || ''}</span>
         {canPlay && (
           <button onClick={(e) => { e.stopPropagation(); onPlay?.(track); }}
@@ -172,15 +172,15 @@ function TrackRow({ track, onPlay, isPlaying, tracks, user, onTagSaved, onGoToAl
           </button>
         )}
       </td>
-      <td className="px-4 py-2 text-sm truncate max-w-xs">{track.title || track.file_name}</td>
-      <td className="px-4 py-2 text-sm text-surface-400 truncate">{track.artist || '-'}</td>
-      <td className="px-4 py-2 text-sm text-surface-400 truncate">{track.album || '-'}</td>
-      <td className="px-4 py-2 text-sm text-surface-500 text-right">{formatDuration(track.duration)}</td>
-      <td className="px-4 py-2 text-sm text-surface-500">{track.format?.toUpperCase() || ''}</td>
-      <td className="px-2 py-2 text-sm w-8">
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm truncate max-w-xs">{track.title || track.file_name}</td>
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm text-surface-400 truncate hidden sm:table-cell">{track.artist || '-'}</td>
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm text-surface-400 truncate hidden sm:table-cell">{track.album || '-'}</td>
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm text-surface-500 text-right hidden sm:table-cell">{formatDuration(track.duration)}</td>
+      <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm text-surface-500 hidden md:table-cell">{track.format?.toUpperCase() || ''}</td>
+      <td className="px-2 sm:px-2 py-2 text-sm w-8">
         {(hasGoTo || isAdmin) && (
           <button ref={btnRef} onClick={openMenu}
-            className={`p-1 rounded transition-colors text-surface-500 hover:text-white ${menuOpen ? 'text-white' : ''}`}>
+            className={`p-1.5 sm:p-1 rounded transition-colors text-surface-500 hover:text-white ${menuOpen ? 'text-white' : ''}`}>
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
           </button>
         )}
@@ -272,68 +272,80 @@ function Player({ track, queue, queueIndex, onNext, onPrev, onClose, repeat, shu
   const hasNext = onNext != null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-2xl border-t border-white/10 z-50 px-4 select-none shadow-glass">
-      <div className="max-w-6xl mx-auto flex items-center gap-4 h-20">
-        <div className="flex items-center gap-3 w-64 shrink-0 min-w-0">
-          <div className="w-14 h-14 overflow-hidden bg-black/40 shrink-0">
-            {track.cover_path ? <img src={api.coverUrl(track.cover_path)} alt="" className="w-full h-full object-cover" draggable="false" />
-            : <div className="w-full h-full flex items-center justify-center"><svg className="w-6 h-6 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg></div>}
-          </div>
-          <div className="min-w-0"><p className="text-sm font-medium truncate leading-tight">{track.title || track.fileName}</p><p className="text-xs text-surface-400 truncate leading-tight">{track.artist || 'Unknown'}</p></div>
-        </div>
-        <div className="flex-1 max-w-xl mx-auto">
-          <audio ref={audioRef} key={track.id} autoPlay className="hidden" src={api.streamUrl(track.id)} />
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <button onClick={onShuffle} className={`p-1 rounded transition-all duration-200 ${shuffle ? 'text-indigo-400 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]' : 'text-surface-500 hover:text-white'}`} title="Shuffle">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17h16M4 12h16M4 7h16" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 3l4 4-4 4M8 21l-4-4 4-4" /></svg>
-            </button>
-            <button onClick={onPrev} disabled={!hasPrev} className={`p-1 ${hasPrev ? 'text-surface-300 hover:text-white' : 'text-surface-600 cursor-default'}`} title="Previous">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-            </button>
-            <button onClick={togglePlay} className="p-1 text-white hover:text-indigo-300 transition-colors">
-              {playing ? <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
-              : <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>}
-            </button>
-            <button onClick={onNext} disabled={!hasNext} className={`p-1 ${hasNext ? 'text-surface-300 hover:text-white' : 'text-surface-600 cursor-default'}`} title="Next">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-            </button>
-            <button onClick={onRepeat} className={`p-1 rounded transition-all duration-200 ${repeat !== 'none' ? 'text-indigo-400 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]' : 'text-surface-500 hover:text-white'}`} title={`Repeat: ${repeat}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              {repeat === 'one' && <span className="text-[8px] font-bold ml-0.5">1</span>}
-            </button>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-surface-400">
-            <span className="w-9 text-right">{formatDuration(currentTime)}</span>
-            <div className="flex-1 h-1.5 bg-white/10 rounded-full cursor-pointer group relative overflow-hidden" onClick={seek}>
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" style={{ width: `${progressPct}%` }} />
-              <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg shadow-indigo-500/30" style={{ left: `calc(${progressPct}% - 6px)` }} />
+    <div className="fixed bottom-0 left-0 right-0 bg-black/60 backdrop-blur-2xl border-t border-white/10 z-50 px-2 sm:px-4 select-none shadow-glass pb-safe">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center gap-2 sm:gap-4 h-16 sm:h-20">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 sm:flex-none sm:w-64 shrink-0">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 overflow-hidden bg-black/40 shrink-0">
+              {track.cover_path ? <img src={api.coverUrl(track.cover_path)} alt="" className="w-full h-full object-cover" draggable="false" />
+              : <div className="w-full h-full flex items-center justify-center"><svg className="w-5 h-5 sm:w-6 sm:h-6 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg></div>}
             </div>
-            <span className="w-9">{formatDuration(duration)}</span>
+            <div className="min-w-0"><p className="text-xs sm:text-sm font-medium truncate leading-tight">{track.title || track.fileName}</p><p className="text-[10px] sm:text-xs text-surface-400 truncate leading-tight">{track.artist || 'Unknown'}</p></div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 w-48 shrink-0 justify-end">
-          <div className="flex items-center gap-2 text-surface-400">
-            <button onClick={() => setMuted((m) => !m)} className="hover:text-white transition-colors" title={muted ? 'Unmute' : 'Mute'}>
-              {muted || volume === 0
-                ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5L6 9H2v6h4l5 4V5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M23 9l-6 6m0-6l6 6" /></svg>
-                : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5L6 9H2v6h4l5 4V5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" /></svg>}
+          <div className="flex-1 max-w-xl mx-auto hidden sm:block">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <button onClick={onShuffle} className={`p-1 rounded transition-all duration-200 ${shuffle ? 'text-indigo-400 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]' : 'text-surface-500 hover:text-white'}`} title="Shuffle">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17h16M4 12h16M4 7h16" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 3l4 4-4 4M8 21l-4-4 4-4" /></svg>
+              </button>
+              <button onClick={onPrev} disabled={!hasPrev} className={`p-1 ${hasPrev ? 'text-surface-300 hover:text-white' : 'text-surface-600 cursor-default'}`} title="Previous">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+              <button onClick={togglePlay} className="p-1 text-white hover:text-indigo-300 transition-colors">
+                {playing ? <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                : <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>}
+              </button>
+              <button onClick={onNext} disabled={!hasNext} className={`p-1 ${hasNext ? 'text-surface-300 hover:text-white' : 'text-surface-600 cursor-default'}`} title="Next">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
+              </button>
+              <button onClick={onRepeat} className={`p-1 rounded transition-all duration-200 ${repeat !== 'none' ? 'text-indigo-400 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]' : 'text-surface-500 hover:text-white'}`} title={`Repeat: ${repeat}`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                {repeat === 'one' && <span className="text-[8px] font-bold ml-0.5">1</span>}
+              </button>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-surface-400">
+              <span className="w-9 text-right">{formatDuration(currentTime)}</span>
+              <div className="flex-1 h-1.5 bg-white/10 rounded-full cursor-pointer group relative overflow-hidden" onClick={seek}>
+                <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" style={{ width: `${progressPct}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg shadow-indigo-500/30" style={{ left: `calc(${progressPct}% - 6px)` }} />
+              </div>
+              <span className="w-9">{formatDuration(duration)}</span>
+            </div>
+          </div>
+          <audio ref={audioRef} key={track.id} autoPlay className="hidden" src={api.streamUrl(track.id)} />
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 justify-end">
+            <button onClick={togglePlay} className="sm:hidden p-2 text-white hover:text-indigo-300 transition-colors">
+              {playing ? <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+              : <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>}
             </button>
-            <input type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={handleVolumeSlider}
-              onWheel={(e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.05 : 0.05; onVolume(Math.max(0, Math.min(1, volume + delta))); }}
-              className="w-20 h-1 appearance-none bg-surface-700 rounded-full cursor-pointer
-                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
-                [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow" />
+            <button onClick={onPrev} disabled={!hasPrev} className={`sm:hidden p-2 ${hasPrev ? 'text-surface-300' : 'text-surface-600'}`}>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+            </button>
+            <button onClick={onNext} disabled={!hasNext} className={`sm:hidden p-2 ${hasNext ? 'text-surface-300' : 'text-surface-600'}`}>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
+            </button>
+            <div className="hidden sm:flex items-center gap-2 text-surface-400">
+              <button onClick={() => setMuted((m) => !m)} className="hover:text-white transition-colors" title={muted ? 'Unmute' : 'Mute'}>
+                {muted || volume === 0
+                  ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5L6 9H2v6h4l5 4V5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M23 9l-6 6m0-6l6 6" /></svg>
+                  : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5L6 9H2v6h4l5 4V5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" /></svg>}
+              </button>
+              <input type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} onChange={handleVolumeSlider}
+                onWheel={(e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.05 : 0.05; onVolume(Math.max(0, Math.min(1, volume + delta))); }}
+                className="w-20 h-1 appearance-none bg-surface-700 rounded-full cursor-pointer
+                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                  [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow" />
+            </div>
+            <button onClick={onClose} className="text-surface-500 hover:text-white transition-colors p-1">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
           </div>
-          <button onClick={onClose} className="text-surface-500 hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, onScanComplete }) {
+function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, onScanComplete, open, onClose }) {
   const [scanning, setScanning] = useState(false);
   const links = [
     { id: 'browse', label: 'Browse', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
@@ -341,41 +353,48 @@ function Sidebar({ activeView, onViewChange, onHome, user, onLogout, isAdmin, on
     { id: 'artists', label: 'Artists', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
     { id: 'search', label: 'Search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
   ];
+  const handleNav = (id) => { onViewChange(id); onClose?.(); };
   return (
-    <aside className="w-56 bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col h-full shadow-glass">
-      <div className="p-4 border-b border-white/10">
-        <button onClick={onHome} className="text-lg font-bold text-indigo-400 hover:text-indigo-300 transition-colors drop-shadow-[0_0_10px_rgba(99,102,241,0.3)]">TuneCloud</button>
-      </div>
-      <nav className="flex-1 p-2 space-y-1">
-        {links.map((l) => (
-          <button key={l.id} onClick={() => onViewChange(l.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${activeView === l.id ? 'bg-white/10 text-white backdrop-blur-sm border border-white/10 shadow-glow' : 'text-surface-400 hover:text-white hover:bg-white/5'}`}>
-            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={l.icon} /></svg>
-            {l.label}
+    <>
+      {open && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-56 bg-black/95 lg:bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col h-full shadow-glass transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <button onClick={() => { onHome(); onClose?.(); }} className="text-lg font-bold text-indigo-400 hover:text-indigo-300 transition-colors drop-shadow-[0_0_10px_rgba(99,102,241,0.3)]">TuneCloud</button>
+          <button onClick={onClose} className="lg:hidden p-1 text-surface-400 hover:text-white">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
-        ))}
-      </nav>
-      <div className="p-3 border-t border-white/10 space-y-2">
-        <button disabled={scanning} onClick={async () => {
-          setScanning(true);
-          try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); onScanComplete?.(); }
-          catch (e) { toast('Scan error: ' + e.message, 'error'); }
-          finally { setScanning(false); }
-        }} className={`w-full btn-ghost text-xs ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}>{scanning ? 'Scanning...' : 'Rescan Library'}</button>
-        <div className="h-px bg-white/5"></div>
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs text-surface-500 truncate">{user?.username}</span>
-          <div className="flex items-center gap-1">
-            {isAdmin && (
-              <button onClick={() => onViewChange('admin')} className={`p-1 rounded transition-all duration-200 ${activeView === 'admin' ? 'text-indigo-400 bg-indigo-500/10' : 'text-surface-500 hover:text-white'}`} title="Admin">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-            )}
-            <button onClick={onLogout} className="text-xs text-surface-500 hover:text-red-400 transition-colors">Logout</button>
+        </div>
+        <nav className="flex-1 p-2 space-y-1">
+          {links.map((l) => (
+            <button key={l.id} onClick={() => handleNav(l.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 sm:py-2 rounded-lg text-sm transition-all duration-200 ${activeView === l.id ? 'bg-white/10 text-white backdrop-blur-sm border border-white/10 shadow-glow' : 'text-surface-400 hover:text-white hover:bg-white/5'}`}>
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={l.icon} /></svg>
+              {l.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-white/10 space-y-2">
+          <button disabled={scanning} onClick={async () => {
+            setScanning(true);
+            try { const r = await api.scan(); toast(`Scan done: ${r.result.processed} files, ${r.result.covers || 0} covers`); onScanComplete?.(); }
+            catch (e) { toast('Scan error: ' + e.message, 'error'); }
+            finally { setScanning(false); }
+          }} className={`w-full btn-ghost text-xs ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}>{scanning ? 'Scanning...' : 'Rescan Library'}</button>
+          <div className="h-px bg-white/5"></div>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-surface-500 truncate">{user?.username}</span>
+            <div className="flex items-center gap-1">
+              {isAdmin && (
+                <button onClick={() => handleNav('admin')} className={`p-1 rounded transition-all duration-200 ${activeView === 'admin' ? 'text-indigo-400 bg-indigo-500/10' : 'text-surface-500 hover:text-white'}`} title="Admin">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </button>
+              )}
+              <button onClick={onLogout} className="text-xs text-surface-500 hover:text-red-400 transition-colors">Logout</button>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -396,12 +415,12 @@ function BrowseView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick, b
       </div>
       {loading && <p className="text-surface-500">Loading...</p>}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {path && <button onClick={() => setPath(parentPath)} className="card-hover flex flex-col items-center justify-center h-28 gap-1">
+        {path && <button onClick={() => setPath(parentPath)} className="card-hover flex flex-col items-center justify-center h-24 sm:h-28 gap-1">
           <svg className="w-8 h-8 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" /></svg>
           <span className="text-xs text-surface-400">..</span>
         </button>}
         {dirs.filter((e) => e.type === 'dir').map((d) => (
-          <button key={d.path} onClick={() => setPath(d.path)} className="card-hover flex flex-col items-center justify-center h-28 gap-1">
+          <button key={d.path} onClick={() => setPath(d.path)} className="card-hover flex flex-col items-center justify-center h-24 sm:h-28 gap-1">
             <svg className="w-10 h-10 text-amber-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span className="text-xs text-center truncate w-full">{d.name}</span>
           </button>
@@ -409,9 +428,9 @@ function BrowseView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick, b
       </div>
       {files.length > 0 && <div className="mt-6">
         <h3 className="text-sm font-medium text-surface-400 mb-2">Files</h3>
-        <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-xs sm:text-sm">
           <thead><tr className="text-surface-500 border-b border-white/10">
-            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
+            <th className="px-2 sm:px-4 py-2 text-left w-8 sm:w-10">#</th><th className="px-2 sm:px-4 py-2 text-left">Title</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Artist</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Album</th><th className="px-2 sm:px-4 py-2 text-right hidden sm:table-cell">Duration</th><th className="px-2 sm:px-4 py-2 text-left hidden md:table-cell">Format</th><th className="w-8"></th>
           </tr></thead>
           <tbody>{files.map((t) => <TrackRow key={t.id || t.fileName} track={t} onPlay={() => onPlay(t, files)} tracks={files} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />)}</tbody>
         </table></div>
@@ -435,12 +454,12 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack, user, onAlbumClick, 
         Back
       </button>
 
-      <div className="flex gap-6 mb-8 glass p-6 rounded-2xl">
-        <div className="w-48 h-48 rounded-xl overflow-hidden bg-black/40 shrink-0 shadow-lg shadow-indigo-500/10 ring-1 ring-white/10">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 sm:mb-8 glass p-4 sm:p-6 rounded-2xl">
+        <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-xl overflow-hidden bg-black/40 shrink-0 shadow-lg shadow-indigo-500/10 ring-1 ring-white/10 mx-auto sm:mx-0">
           {album.cover_path ? <img src={api.coverUrl(album.cover_path)} alt={album.title} className="w-full h-full object-cover" draggable="false" />
           : <div className="w-full h-full flex items-center justify-center"><svg className="w-16 h-16 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg></div>}
         </div>
-        <div className="flex flex-col justify-end">
+        <div className="flex flex-col justify-end text-center sm:text-left">
           <p className="text-xs uppercase tracking-wider text-surface-400 mb-1">Album</p>
           <h2 className="text-3xl font-bold mb-1 text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.15)]">{album.title}</h2>
           <p className="text-lg text-surface-300">{album.artist}</p>
@@ -454,9 +473,9 @@ function AlbumDetail({ album, onPlay, currentTrack, onBack, user, onAlbumClick, 
       </div>
 
       {loading ? <p className="text-surface-500">Loading tracks...</p>
-      : <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
+      : <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-xs sm:text-sm">
         <thead><tr className="text-surface-500 border-b border-white/10">
-          <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
+          <th className="px-2 sm:px-4 py-2 text-left w-8 sm:w-10">#</th><th className="px-2 sm:px-4 py-2 text-left">Title</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Artist</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Album</th><th className="px-2 sm:px-4 py-2 text-right hidden sm:table-cell">Duration</th><th className="px-2 sm:px-4 py-2 text-left hidden md:table-cell">Format</th><th className="w-8"></th>
         </tr></thead>
         <tbody>{tracks.map((t) => (
           <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />
@@ -593,6 +612,7 @@ function ArtistDetail({ artist, onPlay, currentTrack, onBack, user, onAlbumClick
   }, [artist.name]);
 
   const duration = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+  const albumCount = new Set(tracks.map((t) => t.album || 'Unknown Album')).size;
 
   const albums = [];
   const albumMap = {};
@@ -609,17 +629,17 @@ function ArtistDetail({ artist, onPlay, currentTrack, onBack, user, onAlbumClick
         Back
       </button>
 
-      <div className="flex gap-6 mb-8 glass p-6 rounded-2xl">
-        <div className="w-48 h-48 rounded-xl overflow-hidden bg-black/40 shrink-0 shadow-lg shadow-indigo-500/10 ring-1 ring-white/10">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 sm:mb-8 glass p-4 sm:p-6 rounded-2xl">
+        <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-xl overflow-hidden bg-black/40 shrink-0 shadow-lg shadow-indigo-500/10 ring-1 ring-white/10 mx-auto sm:mx-0">
           {artistImage
             ? <img src={artistImage} alt={artist.name} className="w-full h-full object-cover" draggable="false" />
             : <div className="w-full h-full flex items-center justify-center"><svg className="w-16 h-16 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></div>}
         </div>
-        <div className="flex flex-col justify-end">
+        <div className="flex flex-col justify-end text-center sm:text-left">
           <p className="text-xs uppercase tracking-wider text-surface-400 mb-1">Artist</p>
-          <h2 className="text-3xl font-bold mb-1 text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.15)]">{artist.name}</h2>
-          <div className="flex items-center gap-3 mt-2 text-sm text-surface-400">
-            <span>{artist.album_count} albums</span>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-1 text-white drop-shadow-[0_0_20px_rgba(99,102,241,0.15)]">{artist.name}</h2>
+          <div className="flex items-center justify-center sm:justify-start gap-3 mt-2 text-sm text-surface-400 flex-wrap">
+            <span>{albumCount} albums</span>
             <span>{tracks.length} tracks</span>
             <span>{formatDuration(duration)}</span>
           </div>
@@ -630,9 +650,9 @@ function ArtistDetail({ artist, onPlay, currentTrack, onBack, user, onAlbumClick
       : albums.map((al) => (
         <div key={al.title} className="mb-6">
           <h3 className="text-sm font-medium text-surface-400 mb-2">{al.title}</h3>
-          <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-xs sm:text-sm">
             <thead><tr className="text-surface-500 border-b border-white/10">
-            <th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th>
+            <th className="px-2 sm:px-4 py-2 text-left w-8 sm:w-10">#</th><th className="px-2 sm:px-4 py-2 text-left">Title</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Artist</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Album</th><th className="px-2 sm:px-4 py-2 text-right hidden sm:table-cell">Duration</th><th className="px-2 sm:px-4 py-2 text-left hidden md:table-cell">Format</th><th className="w-8"></th>
             </tr></thead>
             <tbody>{al.tracks.map((t) => (
               <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, tracks)} tracks={tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={reload} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />
@@ -670,8 +690,8 @@ function SearchView({ onPlay, currentTrack, user, onAlbumClick, onArtistClick })
             </button>
           ))}</div></div>}
         {results.tracks.length > 0 && <div><h3 className="text-sm font-medium text-surface-400 mb-2">Tracks ({results.tracks.length})</h3>
-            <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-sm">
-              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-4 py-2 text-left w-10">#</th><th className="px-4 py-2 text-left">Title</th><th className="px-4 py-2 text-left">Artist</th><th className="px-4 py-2 text-left">Album</th><th className="px-4 py-2 text-right">Duration</th><th className="px-4 py-2 text-left">Format</th><th className="w-8"></th></tr></thead>
+            <div className="overflow-x-auto rounded-xl glass"><table className="w-full text-xs sm:text-sm">
+              <thead><tr className="text-surface-500 border-b border-white/10"><th className="px-2 sm:px-4 py-2 text-left w-8 sm:w-10">#</th><th className="px-2 sm:px-4 py-2 text-left">Title</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Artist</th><th className="px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Album</th><th className="px-2 sm:px-4 py-2 text-right hidden sm:table-cell">Duration</th><th className="px-2 sm:px-4 py-2 text-left hidden md:table-cell">Format</th><th className="w-8"></th></tr></thead>
             <tbody>{results.tracks.map((t) => <TrackRow key={t.id} track={t} onPlay={() => onPlay(t, results.tracks)} tracks={results.tracks} isPlaying={currentTrack?.id === t.id} user={user} onTagSaved={() => doSearch(query)} onGoToAlbum={onAlbumClick} onGoToArtist={onArtistClick} />)}</tbody>
           </table></div></div>}
         {results.tracks.length === 0 && results.albums.length === 0 && results.artists.length === 0 && <p className="text-surface-500">No results found for "{query}"</p>}
@@ -790,6 +810,7 @@ export default function App() {
   const [scanVersion, setScanVersion] = useState(0);
   const [navHistory, setNavHistory] = useState([]);
   const [browsePath, setBrowsePath] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (getAuthToken()) {
@@ -862,8 +883,15 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} onScanComplete={() => setScanVersion((v) => v + 1)} />
-        <main className="flex-1 overflow-y-auto p-6 pb-28 bg-black/20 backdrop-blur-sm">
+        <Sidebar activeView={view} onViewChange={handleViewChange} onHome={handleHome} user={user} onLogout={handleLogout} isAdmin={user?.is_admin} onScanComplete={() => setScanVersion((v) => v + 1)} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="lg:hidden flex items-center gap-3 px-4 py-2.5 border-b border-white/10 bg-black/40 backdrop-blur-xl">
+            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-surface-300">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <button onClick={handleHome} className="text-base font-bold text-indigo-400 drop-shadow-[0_0_10px_rgba(99,102,241,0.3)]">TuneCloud</button>
+          </div>
+          <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 sm:pb-28 bg-black/20 backdrop-blur-sm">
           {view === 'browse' && <BrowseView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} browsePath={browsePath} onBrowsePathChange={setBrowsePath} />}
           {view === 'albums' && <AlbumsView key={scanVersion} onPlay={handlePlay} currentTrack={currentTrack} onAlbumClick={handleAlbumClick} />}
           {view === 'album' && selectedAlbum && <AlbumDetail album={selectedAlbum} onPlay={handlePlay} currentTrack={currentTrack} onBack={handleBackToAlbums} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
@@ -872,6 +900,7 @@ export default function App() {
           {view === 'search' && <SearchView onPlay={handlePlay} currentTrack={currentTrack} user={user} onAlbumClick={handleAlbumClick} onArtistClick={handleArtistClick} />}
           {view === 'admin' && <AdminView />}
         </main>
+        </div>
       </div>
       {currentTrack && (
         <Player track={currentTrack} queue={queue} queueIndex={queueIndex}

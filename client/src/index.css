@@ -12,7 +12,7 @@
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    @apply px-4 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200;
   }
   .btn-primary {
     @apply btn bg-indigo-600/80 hover:bg-indigo-500/90 text-white backdrop-blur-sm border border-indigo-400/20 hover:border-indigo-400/30 shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20;
@@ -27,7 +27,7 @@
     @apply card transition-all duration-300 hover:bg-black/40 hover:border-white/20 hover:shadow-glass-lg hover:shadow-indigo-500/5;
   }
   .input {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 text-surface-100
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2.5 sm:py-2 text-surface-100
            placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400/30
            transition-all duration-200;
   }
@@ -60,4 +60,8 @@ img {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 }
