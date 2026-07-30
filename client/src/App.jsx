@@ -843,7 +843,7 @@ export default function App() {
   const handleArtistClick = (artist) => { setNavHistory((h) => [...h, view]); setSelectedArtist(artist); setView('artist'); };
   const handleBackToArtists = () => { setSelectedArtist(null); const last = navHistory[navHistory.length - 1]; setNavHistory((h) => h.slice(0, -1)); setView(last || 'artists'); };
   const handleViewChange = (v) => { setSelectedAlbum(null); setSelectedArtist(null); setNavHistory([]); setView(v); };
-  const handleHome = () => { setSelectedAlbum(null); setSelectedArtist(null); setNavHistory([]); setView('browse'); };
+  const handleHome = () => { setSelectedAlbum(null); setSelectedArtist(null); setNavHistory([]); setBrowsePath(''); setView('browse'); };
 
   const hasPrev = pickPrev() >= 0;
   const hasNext = pickNext() >= 0;
