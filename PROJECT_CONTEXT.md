@@ -57,19 +57,26 @@ tunecloud/                          # Основной репозиторий
         └── App.jsx                 # всё приложение (SFC)
 ```
 
-GitOps манифесты в отдельном репозитории `egorpirkov/TuneCloud-GitOps`:
+GitOps манифесты в отдельном репозитории `egorpirkov/TuneCloud-GitOps` — это **Helm chart**:
 ```
 TuneCloud-GitOps/
-├── client-deployment.yaml          # Deployment Nginx (ghcr.io image)
-├── client-service.yaml             # NodePort :30080
-├── server-deployment.yaml          # Deployment API (ghcr.io image, env, secrets)
-├── server-service.yaml             # ClusterIP :4000
-├── server-monitor.yaml             # Service + ServiceMonitor для Prometheus (/metrics)
-├── postgres-deployment.yaml        # PostgreSQL 16 + init script + readinessProbe
-├── postgres-service.yaml           # ClusterIP :5432
-├── postgres-configmap.yaml         # init.sql (схема БД)
-├── postgres-pvc.yaml               # PersistentVolumeClaim 2Gi (данные)
-└── covers-pvc.yaml                 # PersistentVolumeClaim 2Gi (обложки)
+└── tunecloud/                        # Helm chart (v0.1.0)
+    ├── Chart.yaml
+    ├── values.yaml                   # image теги (патчатся CI через yq), domain, replicas
+    ├── .helmignore
+    └── templates/
+        ├── client-deployment.yaml    # Deployment Nginx (ghcr.io image)
+        ├── client-service.yaml       # ClusterIP :80
+        ├── covers-pvc.yaml           # PersistentVolumeClaim 2Gi (обложки)
+        ├── grafana-ingress.yaml      # Ingress: grafana.tunecloud.local → monitoring-grafana
+        ├── ingress.yaml              # Ingress: tunecloud.local → client:80, /api → server:4000
+        ├── postgres-configmap.yaml   # init.sql (схема БД)
+        ├── postgres-deployment.yaml  # PostgreSQL 16 + readinessProbe
+        ├── postgres-pvc.yaml         # PersistentVolumeClaim 2Gi (данные)
+        ├── postgres-service.yaml     # ClusterIP :5432
+        ├── server-deployment.yaml    # Deployment API (ghcr.io image, env, secrets)
+        ├── server-monitor.yaml       # Service + ServiceMonitor для Prometheus (/metrics)
+        └── server-service.yaml       # ClusterIP :4000
 ```
 
 ## Что уже написано / спроектировано
@@ -126,26 +133,29 @@ TuneCloud-GitOps/
 
 ### Frontend
 
-- **Sidebar** — Browse / Albums / Artists / Search + Rescan Library (с state "Scanning...") + Logout
+- **Sidebar** — Browse / Albums / Artists / Search + Rescan Library (с state "Scanning...") + Logout. На мобилке: drawer (hamburger → slide-in с overlay, закрытие по тапу вне или крестику). На десктопе: всегда виден
+- **Mobile header** — на мобилке: ☰ hamburger + TuneCloud logo. На десктопе: скрыт
 - **LoginView** — JWT авторизация, форма логина
 - **AdminView** — создание пользователей, список с ролями
-- **BrowseView** — файловый браузер по директориям с breadcrumbs, таблица треков
-- **AlbumsView** — сетка альбомов с обложками, фильтр по title/artist, клик → AlbumDetail
-- **AlbumDetail** — полноценная страница: обложка 192px, мета, треклист
-- **ArtistsView** — сетка карточек артистов с фото (Spotify кэш), клик → ArtistDetail
-- **ArtistDetail** — страница артиста: обложка 192px, имя, статистика, треки сгруппированы по альбомам с подзаголовками
+- **BrowseView** — файловый браузер по директориям с breadcrumbs, таблица треков. `browsePath` в App state (сохраняется между mount/unmount). На мобилке: скрыты колонки Artist/Album/Duration/Format, горизонтальный скролл
+- **AlbumsView** — сетка альбомов с обложками, фильтр по title/artist, клик → AlbumDetail. Responsive grid: 2→3→4→5→6 колонок
+- **AlbumDetail** — страница альбома: обложка (32x32 mobile, 48x48 desktop), мета, треклист. На мобилке: обложка и инфо стакаются вертикально
+- **ArtistsView** — сетка карточек артистов с фото (Spotify кэш), клик → ArtistDetail. Responsive grid
+- **ArtistDetail** — страница артиста: обложка, имя, статистика (album_count считается из fetched треков через Set), треки сгруппированы по альбомам. На мобилке: стакается вертикально
 - **SearchView** — debounced поиск, кликабельные альбомы/артисты → их страницы, результаты с обложками
-- **Player** — кастомный UI: обложка, Title + Artist, прогресс-бар, Play/Pause, Prev/Next, Repeat (none/all/one), Shuffle, Volume slider + mouse wheel + Mute, Close
+- **Player** — кастомный UI: обложка, Title + Artist, прогресс-бар, Play/Pause, Prev/Next, Repeat (none/all/one), Shuffle, Volume slider + mouse wheel + Mute, Close. На мобилке: компактный (обложка 40px + 3 кнопки + крестик, без progress/shuffle/repeat/volume). Safe area для iPhone
 - **Media Session API** — `navigator.mediaSession.metadata` (title, artist, album, artwork) + action handlers (play/pause/prev/next) для системного плеера
 - **Scan refresh** — `scanVersion` counter в App, инкрементируется после скана; BrowseView/AlbumsView/ArtistsView получают `key={scanVersion}` → remount + re-fetch
 - **Queue** — при клике на трек вся текущая таблица становится очередью
 - **EditTrackModal** — модалка редактирования тегов (title, artist, album, trackNumber, year, genre), portal через createPortal
-- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (для всех: Go to Album, Go to Artist; admin: Edit Tags / non-MP3: Read-only). Portal через createPortal с position:fixed + z-[200]
-- **Навигация** — `navHistory` stack для Back ( Browse→Album/Artist → Back), `browsePath` в App state (сохраняется path BrowseView между mount/unmount)
+- **TrackRow** — play triangle на hover (как Spotify) + двойной клик + три-точечное меню (для всех: Go to Album, Go to Artist; admin: Edit Tags / non-MP3: Read-only). Portal через createPortal с position:fixed + z-[200]. На мобилке: скрыты Artist/Album/Duration/Format колонки, кнопка меню увеличена (touch target)
+- **Навигация** — `navHistory` stack для Back (Browse→Album/Artist → Back), `browsePath` в App state (сохраняется path BrowseView между mount/unmount). Logo TuneCloud → корень Browse (сбрасывает browsePath). Кнопка Browse → сохраняет позицию
+- **Favicon** — apple-touch-icon, favicon.ico, android-chrome icons, site.webmanifest
 - **Document title** — `Артист — Трек` во время проигрывания, `TuneCloud` при закрытии
 - **Cover URL** — проверка на дублирование `/api/` через `path.startsWith('/api/')`
 - **Изображения** — `pointer-events: none` + `user-select: none` + `draggable="false"` (защита от drag & select)
 - **Аватарки артистов** — загружаются при монтировании, кэшируются в `localStorage` (`tunecloud-artist-images`), `Promise.allSettled` для параллельной подгрузки
+- **Touch targets** — кнопки и инпуты увеличены на мобилке (py-2.5), safe area для iPhone (pb-safe)
 
 ### Scanner и дедупликация
 
@@ -177,8 +187,8 @@ TuneCloud-GitOps/
 - `.github/workflows/main.yml` — при пуше в `main`:
   1. Сборка client и server Docker образов
   2. Пуш в `ghcr.io/egorpirkov/tunecloud-{client,server}:sha-XXXXXXX` + `latest`
-  3. Клонирование GitOps репозитория, обновление image тегов через `yq`
-  4. Автокоммит и пуш в GitOps репозиторий
+  3. Клонирование GitOps репозитория, `yq` патчит `values.yaml` (image теги)
+  4. Автокоммит и пуш в GitOps репозиторий (stefanzweifel/git-auto-commit-action)
   5. ArgoCD автоматически синхронизирует кластер
 
 ### Инфраструктура (k3s)
@@ -187,8 +197,10 @@ TuneCloud-GitOps/
 - Музыка: hostPath `/mnt/HDD/Muzl0` → `/music` в контейнере
 - Обложки: PersistentVolumeClaim `covers-pvc` (2Gi)
 - Данные БД: PersistentVolumeClaim `postgres-pvc` (2Gi)
-- Мониторинг: ServiceMonitor (Prometheus operator) на `/metrics`
-- Секреты: `spotify-secret`, `jwt-secret`, `ghcr-secret`
+- Мониторинг: kube-prometheus-stack (Prometheus + Grafana + Alertmanager), ServiceMonitor на `/metrics`
+- Grafana: `grafana.tunecloud.local` → monitoring-grafana (ns: monitoring)
+- Секреты: `spotify-secret`, `jwt-secret`, `ghcr-secret` (Kubernetes Secrets)
+- Admin creds: `ADMIN_USERNAME`/`ADMIN_PASSWORD` в Kubernetes Secrets (не в манифестах)
 
 ## Текущий шаг
 
@@ -207,8 +219,9 @@ TuneCloud-GitOps/
 - TrackRow: "Go to Album" / "Go to Artist" в меню (для всех)
 - Сортировка: NULL track_number → fallback на file_name
 - Авторизация (JWT) + роли admin/user
-- Docker Compose + Kubernetes (ArgoCD) деплой
-- Prometheus метрики на `/metrics` + ServiceMonitor
+- Docker Compose + Kubernetes (ArgoCD + Helm) деплой
+- Prometheus метрики на `/metrics` + ServiceMonitor + Grafana
+- **Mobile responsive UI**: drawer sidebar, compact player, responsive grids, touch-friendly controls
 
 ## Ближайшие задачи
 
