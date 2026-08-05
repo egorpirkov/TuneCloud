@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { query } from '../db.js';
+import { streamOpened, streamClosed } from '../metrics.js';
 
 const MIME_TYPES = {
   mp3: 'audio/mpeg',
@@ -11,6 +12,27 @@ const MIME_TYPES = {
   wma: 'audio/x-ms-wma',
   opus: 'audio/ogg',
 };
+
+function pipeWithTracking(fileStream, res) {
+  streamOpened();
+  let bytes = 0;
+  let done = false;
+  fileStream.on('data', (chunk) => {
+    bytes += chunk.length;
+  });
+  const finish = () => {
+    if (done) return;
+    done = true;
+    streamClosed(bytes);
+  };
+  res.on('finish', finish);
+  res.on('close', finish);
+  fileStream.on('error', () => {
+    finish();
+    res.end();
+  });
+  fileStream.pipe(res);
+}
 
 export default async function streamRoutes(fastify) {
   fastify.get('/api/stream/:id', async (req, reply) => {
@@ -51,11 +73,7 @@ export default async function streamRoutes(fastify) {
         'Content-Type': contentType,
       });
 
-      stream.on('error', () => {
-        reply.raw.end();
-      });
-
-      stream.pipe(reply.raw);
+      pipeWithTracking(stream, reply.raw);
       return;
     }
 
@@ -65,8 +83,6 @@ export default async function streamRoutes(fastify) {
       'Accept-Ranges': 'bytes',
     });
 
-    const stream = fs.createReadStream(filePath);
-    stream.on('error', () => reply.raw.end());
-    stream.pipe(reply.raw);
+    pipeWithTracking(fs.createReadStream(filePath), reply.raw);
   });
 }

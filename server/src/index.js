@@ -5,6 +5,7 @@ import fastifyMetrics from 'fastify-metrics';
 import fs from 'fs';
 import { initDb, query } from './db.js';
 import { initCoversDir } from './cover.js';
+import { setupCustomMetrics } from './metrics.js';
 import { hashPassword } from './auth.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -47,6 +48,7 @@ async function main() {
   });
 
   await app.register(fastifyMetrics, { endpoint: '/metrics' });
+  setupCustomMetrics(app);
 
   const clientDist = path.resolve(__dirname, '../../client/dist');
   if (fs.existsSync(clientDist)) {

@@ -1,5 +1,6 @@
 import { scanDirectory, scanSingleFile } from '../scanner.js';
 import { requireAdmin } from '../auth.js';
+import { recordScan } from '../metrics.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,7 +13,9 @@ export default async function scanRoutes(fastify) {
     }
 
     try {
+      const start = Date.now();
       const result = await scanDirectory(musicDir);
+      recordScan(result, Math.round((Date.now() - start) / 1000));
       return { message: 'Scan completed', result };
     } catch (err) {
       req.log.error(err);
